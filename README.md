@@ -34,8 +34,8 @@ An AI-powered legal assistant that enables users to query Indian legal informati
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/legal-chatbot.git
-cd legal-chatbot
+git clone https://github.com/Ritesh-sh/NyayaDoot.git
+cd NyayaDoot
 ```
 
 ---
