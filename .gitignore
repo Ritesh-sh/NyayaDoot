@@ -1,0 +1,68 @@
+# ======================
+# Global Python ignores
+# ======================
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.env
+*.env
+
+# Jupyter Notebooks (if any)
+.ipynb_checkpoints/
+
+# Cache and log files
+*.log
+*.out
+*.bak
+*.tmp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# ======================
+# legal-ai-service ignores
+# ======================
+legal-ai-service/__pycache__/
+legal-ai-service/*.pyc
+
+# Ignore entire models folder (hosted on Google Drive)
+legal-ai-service/models/
+
+# Local environment & config files
+legal-ai-service/.env
+
+# ======================
+# legal-backend ignores
+# ======================
+legal-backend/node_modules/
+legal-backend/.env
+legal-backend/package-lock.json
+legal-backend/.DS_Store
+
+# ======================
+# legal-frontend ignores
+# ======================
+legal-frontend/node_modules/
+legal-frontend/.env
+legal-frontend/build/
+legal-frontend/package-lock.json
+legal-frontend/.DS_Store
+
+# ======================
+# IDE/editor-specific ignores
+# ======================
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Swap/backup files
+*.swp
+*.swo
+*.~undo-tree*
