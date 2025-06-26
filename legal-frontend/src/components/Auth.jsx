@@ -15,38 +15,40 @@ import { styled } from '@mui/material/styles';
 
 // Color scheme consistent with Chat and ChatMessage
 const COLORS = {
-  background: '#0F172A', // Dark navy
+  background: '#121212', // Deep blue
   surface: '#1E293B',    // Blue-gray
-  primary: '#7C3AED',    // Violet
+  primary: '#d4af37',    // Gold
   secondary: '#94A3B8',  // Muted text
   text: '#F8FAFC',       // Light text
 };
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(5),
-  borderRadius: '16px',
-  maxWidth: '400px',
+  padding: theme.spacing(6),
+  borderRadius: '20px',
+  maxWidth: '440px',
   width: '100%',
-  margin: theme.spacing(2),
+  margin: theme.spacing(4, 'auto'),
   backgroundColor: COLORS.surface,
   color: COLORS.text,
-  boxShadow: '0px 4px 20px rgba(124, 58, 237, 0.3)',
+  boxShadow: '0px 8px 32px rgba(212, 175, 55, 0.18)',
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(2),
+  gap: theme.spacing(3),
+  alignItems: 'center',
 }));
 
 const StyledButton = styled(Button)(() => ({
-  padding: '12px',
-  fontSize: '1rem',
-  fontWeight: 600,
-  borderRadius: '8px',
+  padding: '14px',
+  fontSize: '1.1rem',
+  fontWeight: 700,
+  borderRadius: '10px',
   textTransform: 'none',
-  marginTop: '16px',
+  marginTop: '20px',
   backgroundColor: COLORS.primary,
-  color: COLORS.text,
+  color: '#0a2463',
+  width: '100%',
   '&:hover': {
-    backgroundColor: '#8B5CF6', // Slightly lighter violet
+    backgroundColor: '#c4a030',
   },
 }));
 
@@ -104,28 +106,28 @@ const Auth = () => {
         backgroundColor: COLORS.background,
       }}
     >
-      <StyledPaper elevation={3}>
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="h4" fontWeight="bold" color={COLORS.primary}>
+      <StyledPaper elevation={6}>
+        <Box sx={{ textAlign: 'center', width: '100%' }}>
+          <Typography variant="h4" fontWeight="bold" color={COLORS.primary} gutterBottom>
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </Typography>
-          <Typography variant="body2" color={COLORS.secondary} sx={{ mt: 1 }}>
-            {isLogin ? 'Sign in to continue' : 'Join us today'}
+          <Typography variant="body1" color={COLORS.secondary} sx={{ mb: 2 }}>
+            {isLogin ? 'Sign in to continue to Nyayadoot' : 'Join Nyayadoot today'}
           </Typography>
         </Box>
 
         {error && (
-          <Alert severity="error" sx={{ borderRadius: '8px' }}>
+          <Alert severity="error" sx={{ borderRadius: '8px', width: '100%' }}>
             {error}
           </Alert>
         )}
         {success && (
-          <Alert severity="success" sx={{ borderRadius: '8px' }}>
+          <Alert severity="success" sx={{ borderRadius: '8px', width: '100%' }}>
             {success}
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ width: '100%' }}>
           <TextField
             fullWidth
             margin="normal"
@@ -139,12 +141,12 @@ const Auth = () => {
             InputProps={{ style: { color: COLORS.text } }}
             sx={{
               '& .MuiOutlinedInput-root': {
-                borderRadius: '8px',
+                borderRadius: '10px',
                 '& fieldset': {
                   borderColor: COLORS.primary,
                 },
                 '&:hover fieldset': {
-                  borderColor: '#8B5CF6',
+                  borderColor: '#c4a030',
                 },
               },
             }}
@@ -163,12 +165,12 @@ const Auth = () => {
             InputProps={{ style: { color: COLORS.text } }}
             sx={{
               '& .MuiOutlinedInput-root': {
-                borderRadius: '8px',
+                borderRadius: '10px',
                 '& fieldset': {
                   borderColor: COLORS.primary,
                 },
                 '&:hover fieldset': {
-                  borderColor: '#8B5CF6',
+                  borderColor: '#c4a030',
                 },
               },
             }}
@@ -179,7 +181,7 @@ const Auth = () => {
           </StyledButton>
         </form>
 
-        <Box sx={{ textAlign: 'center' }}>
+        <Box sx={{ textAlign: 'center', width: '100%' }}>
           <ToggleButton
             onClick={() => {
               setIsLogin(!isLogin);

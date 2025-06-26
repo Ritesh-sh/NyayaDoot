@@ -52,6 +52,7 @@
             |-- Chat.jsx
             |-- ChatMessage.jsx
             |-- History.jsx
+            |-- LandingPage.jsx
         |-- contexts
             |-- AuthContext.js
         |-- index.css

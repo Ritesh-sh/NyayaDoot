@@ -5,42 +5,60 @@ import { Paper } from '@mui/material';
 export default function ChatMessage({ answer, type }) {
   const isUser = type === 'user';
 
-  // Custom color palette
+  // Updated color palette for modern gold/blue style
   const colors = {
     user: {
-      background: '#7C3AED', // violet
-      text: '#FFFFFF',
+      background: '#d4af37', // gold
+      text: '#0a2463', // deep blue text
+      border: '#c4a030',
     },
     bot: {
       background: '#1E293B', // deep blue
-      text: '#E5E7EB', // light gray
+      text: '#F8FAFC', // light text
+      border: '#232946',
     },
     codeBlock: {
-      background: '#0F0F0F', // near-black
-      text: '#D1D5DB', // subtle gray for code text
-      accent: '#7C3AED', // violet accent for inline code
+      background: '#232946', // dark blue for code
+      text: '#F8FAFC', // light text for code
+      accent: '#d4af37', // gold accent for inline code
     }
   };
 
   const bubbleStyles = isUser
-    ? { borderTopLeftRadius: 16, borderTopRightRadius: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }
-    : { borderTopLeftRadius: 0, borderTopRightRadius: 16, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 };
+    ? {
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 0,
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+        border: `2px solid ${colors.user.border}`,
+        alignSelf: 'flex-end',
+      }
+    : {
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 18,
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+        border: `2px solid ${colors.bot.border}`,
+        alignSelf: 'flex-start',
+      };
 
   return (
     <Paper
-      elevation={3}
+      elevation={4}
       sx={{
-        p: 2,
+        p: 2.2,
         maxWidth: '75%',
         bgcolor: isUser ? colors.user.background : colors.bot.background,
         color: isUser ? colors.user.text : colors.bot.text,
         ...bubbleStyles,
         wordBreak: 'break-word',
         whiteSpace: 'pre-wrap',
-        fontSize: '0.95rem',
-        lineHeight: 1.6,
-        boxShadow: 3,
-        transition: 'all 0.3s ease-in-out'
+        fontSize: '1.05rem',
+        lineHeight: 1.7,
+        fontWeight: 500,
+        boxShadow: 4,
+        transition: 'all 0.3s cubic-bezier(.4,2,.6,1)',
+        mb: 0.5,
       }}
     >
       <ReactMarkdown
@@ -52,9 +70,10 @@ export default function ChatMessage({ answer, type }) {
                 style={{
                   backgroundColor: colors.codeBlock.accent,
                   color: colors.user.text,
-                  padding: '2px 6px',
+                  padding: '2px 8px',
                   borderRadius: 4,
-                  fontSize: '0.85em'
+                  fontSize: '0.93em',
+                  fontWeight: 600,
                 }}
                 {...props}
               />
@@ -63,10 +82,11 @@ export default function ChatMessage({ answer, type }) {
                 style={{
                   backgroundColor: colors.codeBlock.background,
                   color: colors.codeBlock.text,
-                  padding: '12px',
+                  padding: '14px',
                   borderRadius: 8,
                   overflowX: 'auto',
-                  fontSize: '0.85rem'
+                  fontSize: '0.97rem',
+                  margin: 0,
                 }}
               >
                 <code {...props} />

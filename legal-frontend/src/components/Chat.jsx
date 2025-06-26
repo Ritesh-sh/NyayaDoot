@@ -182,17 +182,16 @@ export default function Chat() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-
+      <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#121212' }}>
         <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
-          <Box sx={{ width: 300, p: 2, bgcolor: 'background.paper', height: '100%' }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
+          <Box sx={{ width: 300, p: 2, bgcolor: '#1E293B', height: '100%' }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ color: '#d4af37' }}>
               🗂️ Chat History
             </Typography>
-            <Button fullWidth variant="contained" onClick={startNewChat} sx={{ mb: 2 }}>
+            <Button fullWidth variant="contained" onClick={startNewChat} sx={{ mb: 2, bgcolor: '#d4af37', color: '#0a2463', fontWeight: 700, '&:hover': { bgcolor: '#c4a030' } }}>
               New Chat
             </Button>
-            <Divider sx={{ mb: 2 }} />
+            <Divider sx={{ mb: 2, bgcolor: '#d4af37' }} />
             <List>
               {history.length > 0 ? history.map((session, index) => (
                 <ListItem
@@ -200,6 +199,7 @@ export default function Chat() {
                   key={index}
                   onClick={() => handleHistoryClick(session)}
                   selected={session.session_id === currentSessionId}
+                  sx={{ borderRadius: 2, mb: 1, bgcolor: session.session_id === currentSessionId ? '#d4af37' : 'inherit', color: session.session_id === currentSessionId ? '#0a2463' : 'inherit', fontWeight: session.session_id === currentSessionId ? 700 : 500 }}
                 >
                   <ListItemText
                     primary={session.messages[0]?.message?.substring(0, 25) + "..."}
@@ -214,34 +214,46 @@ export default function Chat() {
             </List>
           </Box>
         </Drawer>
-
-        <Container maxWidth="md" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', py: 2 }}>
-
-          <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 2 }}>
+        <Container
+          maxWidth={false}
+          sx={{
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            py: 4,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            maxWidth: '1100px',
+            margin: '0 auto',
+          }}
+        >
+          <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 2, maxWidth: '900px', mx: 'auto', width: '100%', bgcolor: 'transparent' }}>
             <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <IconButton edge="start" onClick={toggleDrawer(true)} color="inherit">
+              <IconButton edge="start" onClick={toggleDrawer(true)} sx={{ color: '#d4af37' }}>
                 <MenuIcon />
               </IconButton>
-
-              <Typography variant="h5" fontWeight="bold" color="primary">
+              <Typography variant="h5" fontWeight="bold" sx={{ color: '#d4af37', letterSpacing: 1 }}>
                 ⚖️ Nyayadoot
               </Typography>
-
-              <IconButton onClick={handleLogout} color="inherit">
+              <IconButton onClick={handleLogout} sx={{ color: '#d4af37' }}>
                 <Logout />
               </IconButton>
             </Toolbar>
           </AppBar>
-
           <Box
             sx={{
               flex: 1,
               p: 2,
               overflowY: 'auto',
-              bgcolor: 'background.paper',
+              bgcolor: '#1E293B',
               borderRadius: 3,
               boxShadow: 3,
-              position: 'relative'
+              position: 'relative',
+              maxWidth: '900px',
+              width: '100%',
+              mx: 'auto',
+              minHeight: '400px',
             }}
           >
             {messages.length === 0 && (
@@ -252,80 +264,72 @@ export default function Chat() {
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
                   p: 3,
-                  bgcolor: 'background.paper',
+                  bgcolor: '#232946',
                   borderRadius: 2,
                   boxShadow: 3,
-                  maxWidth: '500px',
+                  maxWidth: '600px',
                   width: '100%',
+                  textAlign: 'center',
                 }}
               >
                 <Typography
                   variant="subtitle1"
                   fontWeight="medium"
-                  color="text.primary"
+                  sx={{ color: '#d4af37', fontSize: '1.1rem', fontWeight: 700 }}
                   gutterBottom
                   align="center"
                 >
                   Get Started with These Questions
                 </Typography>
+                <Divider sx={{ mb: 2, mt: 1, bgcolor: '#d4af37', height: 2, borderRadius: 1 }} />
                 <Box
                   sx={{
                     display: 'flex',
-                    flexWrap: 'wrap',
-                    justifyContent: 'center',
-                    gap: 1.5,
-                    maxWidth: '100%',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 1.2,
+                    width: '100%',
                   }}
                 >
                   {suggestionPrompts.map((prompt, index) => (
-                    <Tooltip
+                    <Button
                       key={index}
-                      title={prompt}
-                      arrow
-                      placement="top"
-                      enterDelay={300}
-                      leaveDelay={100}
-                      componentsProps={{
-                        tooltip: {
-                          sx: {
-                            fontSize: '0.85rem',
-                            maxWidth: 300,
-                            whiteSpace: 'normal',
-                            wordWrap: 'break-word',
-                          }
-                        }
+                      variant="outlined"
+                      onClick={() => setInput(prompt)}
+                      sx={{
+                        bgcolor: '#121212',
+                        color: '#d4af37',
+                        fontWeight: 500,
+                        py: 1.1,
+                        px: 2,
+                        minWidth: '0',
+                        maxWidth: '520px',
+                        width: '100%',
+                        fontSize: '0.98rem',
+                        textAlign: 'center',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        height: 'auto',
+                        border: '1.5px solid',
+                        borderColor: '#d4af37',
+                        boxShadow: '0 1px 4px rgba(212, 175, 55, 0.08)',
+                        borderRadius: '22px',
+                        transition: 'all 0.3s cubic-bezier(.4,2,.6,1)',
+                        mb: 0.5,
+                        '&:hover': {
+                          bgcolor: '#d4af37',
+                          color: '#0a2463',
+                          borderColor: '#c4a030',
+                          transform: 'translateY(-2px) scale(1.03)',
+                          boxShadow: '0 4px 12px rgba(212, 175, 55, 0.13)',
+                        },
+                        overflowWrap: 'break-word',
+                        display: 'block',
+                        margin: '0 auto',
                       }}
                     >
-                      <Chip
-                        label={
-                          prompt.length > 90
-                            ? prompt.substring(0, 37) + '...'
-                            : prompt
-                        }
-                        onClick={() => setInput(prompt)}
-                        sx={{
-                          bgcolor: 'background.default',
-                          color: 'text.primary',
-                          fontWeight: 500,
-                          py: 2.5,
-                          px: 1.5,
-                          minWidth: '120px',
-                          maxWidth: '220px',
-                          textAlign: 'center',
-                          whiteSpace: 'normal',
-                          wordBreak: 'break-word',
-                          height: 'auto',
-                          transition: 'all 0.3s ease',
-                          borderRadius: '16px',
-                          '&:hover': {
-                            bgcolor: 'primary.main',
-                            color: 'white',
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                          },
-                        }}
-                      />
-                    </Tooltip>
+                      {prompt}
+                    </Button>
                   ))}
                 </Box>
               </Box>
@@ -341,13 +345,12 @@ export default function Chat() {
               </Box>
             ))}
             {loading && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" color="#d4af37" sx={{ mt: 1 }}>
                 Assistant is typing...
               </Typography>
             )}
             <div ref={messagesEndRef} />
           </Box>
-
           <Box
             sx={{
               p: 2,
@@ -357,9 +360,12 @@ export default function Chat() {
               borderTop: 1,
               borderColor: 'divider',
               mt: 2,
-              bgcolor: 'background.paper',
+              bgcolor: '#1E293B',
               borderRadius: 2,
-              boxShadow: 1
+              boxShadow: 1,
+              maxWidth: '900px',
+              width: '100%',
+              mx: 'auto',
             }}
           >
             <Box sx={{ display: 'flex', gap: 2 }}>
@@ -371,12 +377,35 @@ export default function Chat() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 disabled={loading}
                 placeholder="Ask your legal question..."
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '10px',
+                    color: '#d4af37',
+                    '& fieldset': {
+                      borderColor: '#d4af37',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#c4a030',
+                    },
+                  },
+                  input: { color: '#fff' },
+                }}
               />
               <Button
                 variant="contained"
                 onClick={handleSend}
                 disabled={loading || !input.trim()}
-                color="primary"
+                sx={{
+                  bgcolor: '#d4af37',
+                  color: '#0a2463',
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  borderRadius: '10px',
+                  px: 4,
+                  '&:hover': {
+                    bgcolor: '#c4a030',
+                  },
+                }}
               >
                 {loading ? 'Sending...' : 'Send'}
               </Button>
