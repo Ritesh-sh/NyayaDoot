@@ -32,7 +32,6 @@ legal-ai-service/__pycache__/
 legal-ai-service/*.pyc
 
 # Ignore entire models folder (hosted on Google Drive)
-legal-ai-service/models/
 
 # Local environment & config files
 legal-ai-service/.env
