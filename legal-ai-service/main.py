@@ -1040,6 +1040,157 @@ def search_relevant_sections(query: str, query_type: str, conversation_history: 
         print(f"Error in section search: {e}")
         return []  # Return empty list on error
 
+def analyze_legal_impact(query: str, conversation_history: str = "", context: str = "") -> str:
+    """Analyze the potential impact of a legal issue using Together AI"""
+    try:
+        # Create a more structured and concise prompt for impact analysis
+        impact_prompt = f"""
+        As a legal expert, provide a CONCISE and STRUCTURED impact analysis for this legal situation:
+
+        User's Situation: {query}
+        Previous Context: {conversation_history if conversation_history else "No previous context"}
+        Additional Context: {context if context else "No additional context provided"}
+
+        Provide a BRIEF impact analysis in this EXACT format:
+
+        **Immediate Impact:**
+        • [2-3 bullet points of immediate consequences]
+
+        **Financial Impact:**
+        • [2-3 bullet points of financial implications]
+
+        **Legal Impact:**
+        • [2-3 bullet points of legal consequences]
+
+        **Long-term Consequences:**
+        • [2-3 bullet points of lasting effects]
+
+        **Risk Level:** [Low/Medium/High]
+
+        **Key Mitigation Steps:**
+        • [3-4 actionable steps to minimize impact]
+
+        Keep each section brief and focused. Use bullet points for clarity. Be specific but concise.
+        """
+
+        # Generate impact analysis using Together AI
+        impact_analysis = generate_with_together(impact_prompt)
+        
+        if not impact_analysis or len(impact_analysis.strip()) < 50:
+            # Fallback response if AI generation fails
+            return """
+**Immediate Impact:**
+• Loss of property and disruption of daily activities
+• Need to report to police and insurance immediately
+• Emotional stress and time investment in recovery process
+
+**Financial Impact:**
+• Insurance deductible and potential premium increases
+• Replacement costs for stolen items and vehicle
+• Legal fees if case becomes complex
+
+**Legal Impact:**
+• Right to file police report and seek legal action
+• Obligation to cooperate with investigation
+• Potential involvement in legal proceedings
+
+**Long-term Consequences:**
+• Impact on insurance history and future premiums
+• Potential effect on credit if vehicle was financed
+• Changes to security measures and insurance coverage
+
+**Risk Level:** Medium
+
+**Key Mitigation Steps:**
+• Report theft immediately to police and insurance
+• Document all losses and keep detailed records
+• Consider legal consultation for complex cases
+• Review and update security measures
+"""
+        
+        return impact_analysis.strip()
+        
+    except Exception as e:
+        print(f"Error in impact analysis: {e}")
+        return """
+**Immediate Impact:**
+• Immediate loss and disruption to daily routine
+• Required reporting and documentation process
+• Emotional and practical challenges
+
+**Financial Impact:**
+• Direct financial losses and replacement costs
+• Insurance implications and potential premium changes
+• Additional expenses for legal or recovery services
+
+**Legal Impact:**
+• Legal rights to pursue recovery and justice
+• Obligations to cooperate with authorities
+• Potential legal proceedings and requirements
+
+**Long-term Consequences:**
+• Lasting effects on insurance and financial standing
+• Changes to security practices and risk management
+• Potential impact on future legal matters
+
+**Risk Level:** Medium to High
+
+**Key Mitigation Steps:**
+• Take immediate action to report and document
+• Seek professional legal and insurance guidance
+• Maintain comprehensive records of all actions
+• Implement preventive measures for the future
+"""
+
+def detect_impact_query(query: str) -> bool:
+    """Detect if the user is asking about the impact of their legal issue"""
+    query_lower = query.lower()
+    
+    # Primary impact keywords that clearly indicate impact analysis requests
+    primary_impact_keywords = [
+        'impact', 'effect', 'consequence', 'result', 'outcome', 'implication',
+        'what will happen', 'what happens if', 'how will this affect',
+        'what are the consequences', 'what are the effects', 'what is the outcome',
+        'how bad is this', 'how serious is this', 'what are the risks',
+        'what could happen', 'what might happen', 'worst case scenario',
+        'financial impact', 'legal impact', 'personal impact', 'professional impact',
+        'long term effects', 'lasting consequences', 'future implications'
+    ]
+    
+    # Check for primary impact keywords first
+    for keyword in primary_impact_keywords:
+        if keyword in query_lower:
+            return True
+    
+    # Secondary impact indicators that need more context
+    secondary_impact_indicators = [
+        'penalty', 'punishment', 'fine', 'damage', 'loss', 'risk'
+    ]
+    
+    # For secondary indicators, check if they're used in impact context
+    for indicator in secondary_impact_indicators:
+        if indicator in query_lower:
+            # Check if it's used in an impact-related context
+            impact_context_words = ['what', 'how', 'tell me about', 'explain', 'describe', 'analyze']
+            for context_word in impact_context_words:
+                if context_word in query_lower:
+                    return True
+    
+    # Check for question patterns that suggest impact analysis
+    impact_questions = [
+        'what if', 'what about', 'how about', 'what about the',
+        'tell me about', 'explain the', 'describe the', 'analyze the'
+    ]
+    
+    for pattern in impact_questions:
+        if pattern in query_lower:
+            # Additional check to see if it's followed by impact-related terms
+            words_after = query_lower.split(pattern)[-1].split()
+            if any(word in ['impact', 'effect', 'consequence', 'result', 'outcome'] for word in words_after[:3]):
+                return True
+    
+    return False
+
 app = FastAPI()
 
 app.add_middleware(
@@ -1134,63 +1285,150 @@ These details will help me provide you with more accurate guidance tailored to y
 
         # If we get here, we have sufficient context to generate a response
         try:
-            # Generate base answer first, including conversation history for context only if it's a follow-up
-            base_answer = generate_direct_answer(query, conversation_history=conversation_history, is_followup=is_followup)
-
             # Initialize references and cases
             references = []
             cases = []
 
-            # Check if user explicitly asked for sections/laws
-            explicitly_asked_for_laws = any(term in query.lower() for term in [
-                'law', 'section', 'act', 'statute', 'provision', 'legislation',
-                'legal provisions', 'laws', 'sections', 'regulations', 'rules',
-                'what laws', 'which laws', 'relevant laws', 'applicable laws'
-            ])
+            # Check if user is asking about impact FIRST (this takes priority)
+            is_impact_query = detect_impact_query(query)
+            print(f"Is impact query: {is_impact_query}")
+
+            # Only check for laws and cases if it's NOT an impact query
+            if not is_impact_query:
+                # Check if user explicitly asked for sections/laws
+                explicitly_asked_for_laws = any(term in query.lower() for term in [
+                    'law', 'section', 'act', 'statute', 'provision', 'legislation',
+                    'legal provisions', 'laws', 'sections', 'regulations', 'rules',
+                    'what laws', 'which laws', 'relevant laws', 'applicable laws'
+                ])
+                
+                # Check if user explicitly asked for cases
+                explicitly_asked_for_cases = any(term in query.lower() for term in [
+                    'case', 'precedent', 'judgment', 'ruling', 'decision', 'court case',
+                    'case law', 'legal cases', 'previous cases', 'similar cases',
+                    'supreme court', 'high court', 'court ruling',
+                    'what cases', 'which cases', 'relevant cases', 'any cases'
+                ])
+
+                # Get relevant sections if requested
+                if explicitly_asked_for_laws:
+                    print("User explicitly asked for laws/sections")
+                    try:
+                        # Use find_relevant_sections instead of search_relevant_sections
+                        sections = find_relevant_sections(query, conversation_history if is_followup else "")
+                        if sections:
+                            for section in sections[:3]:
+                                try:
+                                    summary = section.get('summary', "Relevant legal provision")
+                                    references.append({
+                                        'act': section['act'],
+                                        'section_number': section['section_number'],
+                                        'summary': summary,
+                                        'full_text': section['full_text'][:250] + '...'
+                                    })
+                                except Exception as section_error:
+                                    print(f"Error processing section: {section_error}")
+                    except Exception as sections_error:
+                        print(f"Error finding sections: {sections_error}")
+
+                # Get case law if requested
+                if explicitly_asked_for_cases:
+                    print("User explicitly asked for cases/precedents")
+                    try:
+                        # Use generate_case_law_response instead of direct fetch_kanoon_results
+                        case_law_response = generate_case_law_response(query, conversation_history if is_followup else "")
+                        # Extract cases from the response
+                        cases = fetch_cases_from_api_suggestions(case_law_response)
+                    except Exception as cases_error:
+                        print(f"Error fetching cases: {cases_error}")
+                        cases = []
+
+            # Handle impact analysis if requested
+            impact_analysis = ""
+            if is_impact_query:
+                print("User is asking about impact analysis")
+                try:
+                    # Get relevant context from conversation history and any found sections
+                    context_parts = []
+                    if conversation_history:
+                        context_parts.append(f"Previous conversation: {conversation_history}")
+                    
+                    if references:
+                        ref_context = "Relevant legal provisions found: " + "; ".join([
+                            f"{ref['act']} Section {ref['section_number']}" for ref in references[:2]
+                        ])
+                        context_parts.append(ref_context)
+                    
+                    context = " ".join(context_parts)
+                    
+                    # Generate impact analysis
+                    impact_analysis = analyze_legal_impact(query, conversation_history, context)
+                    print("Impact analysis generated successfully")
+                    
+                    # For impact queries, return only the impact analysis without other components
+                    formatted_answer = f"""
+🎯 **Impact Analysis**
+
+{impact_analysis}
+
+**Next Steps:**
+1. Consult with a qualified lawyer for personalized advice
+2. Document all relevant information and evidence
+3. Follow legal guidance promptly to minimize negative impact
+4. Keep records of all communications and actions taken
+
+*This analysis is for informational purposes only and should not replace professional legal counsel.*
+"""
+                    
+                    # Update conversation history
+                    conv_state.update(request.session_id, query, formatted_answer.strip(), [], [])
+                    
+                    return ResponseModel(
+                        answer=formatted_answer.strip(),
+                        references=[],
+                        cases=[],
+                        is_follow_up=is_followup,
+                        session_id=request.session_id
+                    )
+                    
+                except Exception as impact_error:
+                    print(f"Error generating impact analysis: {impact_error}")
+                    impact_analysis = "I'm unable to provide a detailed impact analysis at this moment. Please consult with a qualified lawyer for a comprehensive assessment of your situation."
+                    
+                    # Return fallback impact response
+                    fallback_response = f"""
+🎯 **Impact Analysis**
+
+{impact_analysis}
+
+**Why professional consultation is important:**
+- Legal situations can have complex, long-term consequences
+- Each case has unique circumstances that affect outcomes
+- Professional advice can help minimize negative impact
+- Lawyers can provide specific strategies for your situation
+
+For immediate guidance, please consult with a legal professional who can provide personalized advice based on your specific circumstances.
+"""
+                    
+                    conv_state.update(request.session_id, query, fallback_response.strip(), [], [])
+                    
+                    return ResponseModel(
+                        answer=fallback_response.strip(),
+                        references=[],
+                        cases=[],
+                        is_follow_up=is_followup,
+                        session_id=request.session_id
+                    )
+
+            # For non-impact queries, generate base answer and format response
+            base_answer = generate_direct_answer(query, conversation_history=conversation_history, is_followup=is_followup)
             
-            # Check if user explicitly asked for cases
-            explicitly_asked_for_cases = any(term in query.lower() for term in [
-                'case', 'precedent', 'judgment', 'ruling', 'decision', 'court case',
-                'case law', 'legal cases', 'previous cases', 'similar cases',
-                'supreme court', 'high court', 'court ruling',
-                'what cases', 'which cases', 'relevant cases', 'any cases'
-            ])
-
-            # Get relevant sections if requested
-            if explicitly_asked_for_laws:
-                print("User explicitly asked for laws/sections")
-                try:
-                    # Use find_relevant_sections instead of search_relevant_sections
-                    sections = find_relevant_sections(query, conversation_history if is_followup else "")
-                    if sections:
-                        for section in sections[:3]:
-                            try:
-                                summary = section.get('summary', "Relevant legal provision")
-                                references.append({
-                                    'act': section['act'],
-                                    'section_number': section['section_number'],
-                                    'summary': summary,
-                                    'full_text': section['full_text'][:250] + '...'
-                                })
-                            except Exception as section_error:
-                                print(f"Error processing section: {section_error}")
-                except Exception as sections_error:
-                    print(f"Error finding sections: {sections_error}")
-
-            # Get case law if requested
-            if explicitly_asked_for_cases:
-                print("User explicitly asked for cases/precedents")
-                try:
-                    # Use generate_case_law_response instead of direct fetch_kanoon_results
-                    case_law_response = generate_case_law_response(query, conversation_history if is_followup else "")
-                    # Extract cases from the response
-                    cases = fetch_cases_from_api_suggestions(case_law_response)
-                except Exception as cases_error:
-                    print(f"Error fetching cases: {cases_error}")
-                    cases = []
-
             # Format the response using the format_response helper
             formatted_answer = format_response(base_answer, references, cases, "legal")
+
+            # Add impact analysis to the response if available (for non-impact queries that might benefit from impact info)
+            if impact_analysis:
+                formatted_answer += f"\n\n🎯 **Impact Analysis:**\n\n{impact_analysis}"
 
             # Parse the response to ensure proper structure
             parsed_response = parse_legal_response(formatted_answer)
