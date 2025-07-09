@@ -1,29 +1,18 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext.jsx';
-import Auth from './components/Auth';
 import Chat from './components/Chat';
 import History from './components/History';
-import { useAuth } from './contexts/AuthContext.jsx';
 import LandingPage from './components/LandingPage';
+import Captcha from './components/Captcha';
 
 function App() {
   return (
-    <AuthProvider>
-      
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Auth />} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+        <Route path="/captcha" element={<Captcha />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/history" element={<History />} />
         </Routes>
-      
-    </AuthProvider>
   );
-}
-
-function ProtectedRoute({ children }) {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" replace />;
 }
 
 export default App;

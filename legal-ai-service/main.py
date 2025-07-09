@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import faiss
@@ -169,53 +169,6 @@ def extract_keywords_from_conversation(conversation_history: str, query: str) ->
     
     return ", ".join(unique_keywords[:15])  # Limit to 15 keywords
 
-# def assess_section_relevance(section: Dict, query: str, conversation_history: str = "") -> float:
-#     """Assess section relevance using general-purpose heuristics"""
-#     # Extract text from the section and query
-#     act_name = section['act'].lower()
-#     section_text = section['full_text'].lower()
-#     query_lower = query.lower()
-    
-#     # Combine all text to create a contextual corpus
-#     all_text = (conversation_history + " " + query).lower()
-    
-#     # Remove common stopwords
-#     stopwords = {'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 
-#                 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'about', 'as', 'of'}
-    
-#     # Extract significant words from the combined text
-#     significant_words = set()
-#     for word in all_text.split():
-#         if word not in stopwords and len(word) > 2:
-#             significant_words.add(word)
-    
-#     # Count keyword matches in section text
-#     matches = 0
-#     matched_keywords = set()
-#     for keyword in significant_words:
-#         if keyword in section_text:
-#             matches += 1
-#             matched_keywords.add(keyword)
-    
-#     # Calculate density of matches relative to section length
-#     match_density = matches / (len(section_text.split()) + 1) * 100
-    
-#     # Calculate relevance score components
-#     base_relevance = min(0.6, match_density / 20)  # Base score from keyword matches
-    
-#     # Bonus score based on the uniqueness of matched keywords
-#     uniqueness_bonus = 0
-#     if matches > 0:
-#         uniqueness_bonus = min(0.2, len(matched_keywords) / 10)
-    
-#     # Compute final score
-#     relevance_score = base_relevance + uniqueness_bonus
-    
-#     # Ensure the score is within 0-1 range
-#     relevance_score = max(0, min(0.9, relevance_score))  # Cap at 0.9
-    
-#     print(f"Relevance for {section['act']} Section {section['section_number']}: {relevance_score:.2f}")
-#     return relevance_score
 
 def find_relevant_sections(query: str, conversation_history: str = "") -> List[Dict]:
     """Find legal sections relevant to the query using simple semantic search"""
@@ -269,31 +222,6 @@ def find_relevant_sections(query: str, conversation_history: str = "") -> List[D
     except Exception as e:
         return []
 
-# def search_legal_sections_for_topic(topic: str) -> List[Dict]:
-#     """Search for sections directly relevant to a specific legal topic"""
-#     try:
-#         print(f"Targeted section search for: {topic}")
-#         query_embedding = model.encode([topic])
-#         D, I = index.search(query_embedding, 8)  # Get results for filtering
-        
-#         # Collect initial results
-#         candidates = []
-#         for i, idx in enumerate(I[0]):
-#             candidates.append({
-#                 'act': section_data[idx]['act'],
-#                 'section_number': section_data[idx]['section_number'],
-#                 'full_text': section_data[idx]['full_text'],
-#                 'score': D[0][i],
-#                 'relevance': 1.0 - (D[0][i] / 2)  # Convert distance to relevance score
-#             })
-        
-#         # Sort by relevance score (higher is better)
-#         candidates.sort(key=lambda x: x['relevance'], reverse=True)
-        
-#         return candidates[:3]  # Return top 3 most relevant
-#     except Exception as e:
-#         print(f"Error in topic search: {e}")
-#         return []
 
 def fetch_kanoon_results(query: str, conversation_history: str = "") -> List[Dict]:
     """Fetch case law results from Indian Kanoon using general legal search"""
@@ -585,14 +513,31 @@ def generate_with_together(prompt: str) -> str:
         print(f"Error generating response: {e}")
         return "I'm having trouble connecting to my knowledge source. For legal matters, it's always best to consult with a qualified attorney who can provide personalized advice."
 
-# def format_prompt_for_model(prompt_text, model_name="meta-llama/Llama-3.1-8B-Instruct"):
-#     """Format prompt according to the model's expected format"""
-#     # For Mistral models
-#     if "mistral" in model_name.lower():
-#         return f"[INST] {prompt_text} [/INST]"
-    
-#     # For Llama models (default)
-#     return prompt_text
+def is_legal_query_together(query: str) -> bool:
+    """
+    Uses Together AI to determine if the query is legal in nature.
+    Returns True if legal, False otherwise.
+    """
+    prompt = f"""You are a classifier. Decide if the following user query is a legal question (about laws, rights, legal procedures, court cases, contracts, etc). \
+Reply with only 'LEGAL' or 'NOT LEGAL'.\n\nQuery: \"{query}\"\n"""
+    try:
+        if together_client is not None:
+            completion = together_client.chat.completions.create(
+                model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=5
+            )
+            result = completion.choices[0].message.content.strip().upper()
+            return result == "LEGAL"
+        else:
+            # Fallback: assume legal (or you can default to False)
+            return True
+    except Exception as e:
+        print(f"Error in legal query classification: {e}")
+        # Fallback: assume legal (or you can default to False)
+        return True
+
 
 def generate_direct_answer(query: str, context: str = "", conversation_history: str = "", is_followup: bool = False) -> str:
     """Generate a direct answer with simplified context to reduce tokens"""
@@ -1213,6 +1158,7 @@ class ResponseModel(BaseModel):
 
 @app.post("/process-query", response_model=ResponseModel)
 async def process_legal_query(request: ProcessQueryRequest):
+    print(f"Received session_id: {request.session_id}")
     try:
         # Generate a new session ID if it's "new_chat"
         if request.session_id == "new_chat":
@@ -1225,6 +1171,20 @@ async def process_legal_query(request: ProcessQueryRequest):
         if len(query) < 3:
             raise HTTPException(status_code=400, detail="Please ask a more detailed question.")
 
+        # Check if this is the first query in this session
+        is_first_query = len(session.get('history', [])) == 0
+        print(f"Is first query: {is_first_query}")
+
+        # --- LEGAL QUERY CHECK ONLY FOR FIRST QUERY ---
+        if is_first_query:
+            if not is_legal_query_together(query):
+                return ResponseModel(
+                    answer="I am not trained for this thing.",
+                    references=[],
+                    cases=[],
+                    is_follow_up=False,
+                    session_id=request.session_id
+                )
         # Get conversation history (limited to reduce token usage)
         conversation_history = conv_state.get_conversation_history(request.session_id, max_turns=2)
         print(f"\nConversation history length: {len(conversation_history)} characters")
@@ -1232,10 +1192,6 @@ async def process_legal_query(request: ProcessQueryRequest):
         # Check if this is likely a follow-up question using our method
         is_followup_query = is_follow_up(query, session)
         print(f"Is follow-up (direct check): {is_followup_query}")
-        
-        # Check if this is the first query in this session
-        is_first_query = len(session.get('history', [])) == 0
-        print(f"Is first query: {is_first_query}")
 
         # Analyze query context without API calls
         context_analysis = analyze_query_context(query, conversation_history)
@@ -1467,6 +1423,12 @@ For specific legal advice tailored to your situation, please consult with a lega
     except Exception as outer_e:
         print(f"Outer exception: {outer_e}")
         raise HTTPException(status_code=500, detail=str(outer_e))
+
+@app.post("/reset-session")
+async def reset_session(session_id: str = Query(...)):
+    if session_id in conv_state.sessions:
+        del conv_state.sessions[session_id]
+    return {"status": "reset"}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

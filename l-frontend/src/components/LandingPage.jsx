@@ -96,7 +96,7 @@ const LandingPage = () => {
           <Grid container spacing={6} alignItems="center">
             <Grid item xs={12} md={6}>
               <Typography variant="h2" sx={{ fontWeight: 700, mb: 3, color: '#d4af37', fontSize: { xs: '2.2rem', md: '3.2rem' } }}>
-                Nyayadoot
+                न्यायदूत
               </Typography>
               <Typography variant="h5" sx={{ mb: 4, color: '#fff', fontWeight: 400, maxWidth: 500 }}>
                 Your AI-powered Legal Assistant for Indian Law
@@ -117,7 +117,7 @@ const LandingPage = () => {
                     background: '#c4a030',
                   },
                 }}
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/captcha')}
               >
                 Start with Nyayadoot
               </Button>
@@ -239,7 +239,7 @@ const LandingPage = () => {
                   background: '#c4a030',
                 },
               }}
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/captcha')}
             >
               Start with Nyayadoot
             </Button>

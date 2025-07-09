@@ -1,77 +1,60 @@
-# Getting Started with Vite + React
+# Legal Chatbot Frontend (l-frontend)
 
-This project was bootstrapped with [Vite](https://vitejs.dev/) and React.
+## Overview
+This is the React frontend for the Legal Chatbot project. It now works without any Node.js backend or database. All chat processing is handled by the FastAPI backend (`legal-ai-service`).
 
-## Available Scripts
+## Features
+- **Landing Page**: Entry point for users.
+- **Captcha Page**: Simple math captcha to verify the user (no login or registration).
+- **Chat Page**: Users can chat with the legal AI. Chat history is stored in the browser's sessionStorage and is cleared when the tab or browser is closed.
+- **No authentication or user accounts**: All previous login/register/database logic has been removed.
 
-In the project directory, you can run:
+## Architecture & Flow
+1. **Landing Page** (`/`): User starts here and clicks to proceed.
+2. **Captcha Page** (`/captcha`): User must solve a simple math captcha to continue.
+3. **Chat Page** (`/chat`): User can chat with the AI. Each message is sent to the FastAPI backend for processing. Chat history is kept only in the browser (sessionStorage).
 
-### `npm run dev`
+### How the FastAPI Backend is Called
+- The frontend sends chat queries to the FastAPI backend at:
+  ```
+  POST http://localhost:8000/process-query
+  ```
+- The backend processes the query and returns a response, which is shown in the chat.
+- The backend is **not** used for authentication, user management, or chat history.
 
-Runs the app in development mode. Open [http://localhost:5173](http://localhost:5173) to view it in your browser.
+## Configuring the FastAPI Backend URL
+By default, the frontend sends requests to `http://localhost:8000/process-query`.
 
-### `npm run build`
+To change the backend URL (for deployment or different environments):
+1. Create a `.env` file in the root of `l-frontend`.
+2. Add:
+   ```
+   VITE_API_URL=http://your-fastapi-backend:8000
+   ```
+3. In your code, use `import.meta.env.VITE_API_URL` to reference the backend URL (see below for code update).
 
-Builds the app for production to the `dist` folder.
+## Updating the Code to Use the Environment Variable
+In your API calls (e.g., in `Chat.jsx`), replace:
+```js
+'http://localhost:8000/process-query'
+```
+with
+```js
+`${import.meta.env.VITE_API_URL}/process-query`
+```
 
-### `npm run preview`
+## Running the Frontend
+1. Install dependencies:
+   ```
+   npm install
+   ```
+2. Start the dev server:
+   ```
+   npm run dev
+   ```
 
-Serves the production build locally.
+## Running the Backend
+See the `legal-ai-service/README.md` for backend instructions.
 
-### `npm test`
-
-No test runner is configured by default. You can add Vitest or Jest for testing.
-
----
-
-## Original Notes
-
-In the project directory, you can run:
-
-### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## No Node Backend Required
+You can delete the `legal-backend` folder and all related files. The project is now fully decoupled from Node.js and MySQL.

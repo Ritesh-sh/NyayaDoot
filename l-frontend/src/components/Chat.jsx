@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import {
   Button, TextField, Container, Box, Typography, IconButton,
@@ -16,8 +15,13 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState(Date.now().toString());
-  const { user, logout } = useAuth();
+  // Initialize currentSessionId to a unique value
+  const [currentSessionId, setCurrentSessionId] = useState(() => {
+    if (window.crypto && window.crypto.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+    return Date.now().toString();
+  });
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
 
@@ -90,19 +94,14 @@ export default function Chat() {
     }
   });
 
+  // Remove all axios calls to /api/chats
+  // On mount, load chat history from sessionStorage
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const response = await axios.get('http://localhost:3001/api/chats', {
-          headers: { Authorization: `Bearer ${user.token}` }
-        });
-        setHistory(response.data);
-      } catch (error) {
-        console.error('Error fetching history:', error);
-      }
-    };
-    if (user) fetchHistory();
-  }, [user]);
+    const storedHistory = sessionStorage.getItem('chatHistory');
+    if (storedHistory) {
+      setHistory(JSON.parse(storedHistory));
+    }
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,40 +109,35 @@ export default function Chat() {
 
   useEffect(scrollToBottom, [messages]);
 
+  // On every message send, update sessionStorage
   const handleSend = async () => {
     if (!input.trim()) return;
-
-    setMessages(prev => [...prev, { type: 'user', content: input }]);
+    console.log('Sending message with session_id:', currentSessionId);
+    const newMessages = [...messages, { type: 'user', content: input }];
+    setMessages(newMessages);
     setLoading(true);
-
     try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const aiResponse = await axios.post(
-        'http://localhost:8000/process-query',
-        { query: input },
-        { headers: { Authorization: `Bearer ${user.token}` } }
+        `${API_URL}/process-query`,
+        { query: input, session_id: currentSessionId }
       );
-
-      await axios.post(
-        'http://localhost:3001/api/chats',
-        {
-          message: input,
-          response: aiResponse.data.answer,
-          session_id: currentSessionId
-        },
-        { headers: { Authorization: `Bearer ${user.token}` } }
-      );
-
-      setMessages(prev => [
-        ...prev,
+      const updatedMessages = [
+        ...newMessages,
         { type: 'bot', content: aiResponse.data.answer }
-      ]);
-
-      const refreshHistory = await axios.get('http://localhost:3001/api/chats', {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      setHistory(refreshHistory.data);
+      ];
+      setMessages(updatedMessages);
+      // Save to sessionStorage as a new session
+      const session = {
+        session_id: currentSessionId,
+        messages: updatedMessages,
+        last_message_time: new Date().toISOString()
+      };
+      let updatedHistory = history.filter(s => s.session_id !== currentSessionId);
+      updatedHistory = [session, ...updatedHistory];
+      setHistory(updatedHistory);
+      sessionStorage.setItem('chatHistory', JSON.stringify(updatedHistory));
     } catch (error) {
-      console.error('Error:', error);
       setMessages(prev => [
         ...prev,
         { type: 'bot', content: 'Sorry, an error occurred. Please try again.' }
@@ -154,28 +148,41 @@ export default function Chat() {
     }
   };
 
-  const startNewChat = () => {
+  const generateSessionId = () => {
+    if (window.crypto && window.crypto.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+    return Date.now().toString();
+  };
+
+  // When user starts a new chat, clear messages and update sessionStorage
+  const startNewChat = async () => {
+    const newSessionId = generateSessionId();
+    console.log('Generated new session_id:', newSessionId);
     setMessages([]);
-    setCurrentSessionId(Date.now().toString());
+    setCurrentSessionId(newSessionId);
     setDrawerOpen(false);
+    // Call backend to reset session state
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      await axios.post(`${API_URL}/reset-session?session_id=${newSessionId}`);
+    } catch (e) {
+      // Ignore errors, just a safety measure
+    }
   };
 
   const toggleDrawer = (open) => () => {
     setDrawerOpen(open);
   };
 
+  // When user clicks a history item, load messages from that session
   const handleHistoryClick = (session) => {
-    const sessionMessages = session.messages.flatMap(msg => [
-      { type: 'user', content: msg.message },
-      { type: 'bot', content: msg.response }
-    ]);
-    setMessages(sessionMessages);
+    setMessages(session.messages);
     setCurrentSessionId(session.session_id);
     setDrawerOpen(false);
   };
 
   const handleLogout = () => {
-    logout();
     navigate('/');
   };
 
@@ -234,7 +241,7 @@ export default function Chat() {
                 <MenuIcon />
               </IconButton>
               <Typography variant="h5" fontWeight="bold" sx={{ color: '#d4af37', letterSpacing: 1 }}>
-                ⚖️ Nyayadoot
+                ⚖️ न्यायदूत
               </Typography>
               <IconButton onClick={handleLogout} sx={{ color: '#d4af37' }}>
                 <Logout />
