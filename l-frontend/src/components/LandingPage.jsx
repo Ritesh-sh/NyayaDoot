@@ -18,11 +18,12 @@ import LockIcon from '@mui/icons-material/Lock';
 
 const heroBg = 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
 
+// Keep only 5 most relevant features
 const features = [
   {
     icon: <SearchIcon sx={{ fontSize: 36, color: '#0a2463' }} />,
     title: 'Semantic Legal Search',
-    desc: 'Find relevant legal information instantly using advanced semantic search powered by FAISS and Sentence Transformers.',
+    desc: 'Find relevant Indian legal information instantly using advanced semantic search powered by AI.',
     bg: '#e3eafc',
   },
   {
@@ -32,21 +33,21 @@ const features = [
     bg: '#fffbe6',
   },
   {
-    icon: <DescriptionIcon sx={{ fontSize: 36, color: '#0a2463' }} />,
-    title: 'Legal Document Summarization',
-    desc: 'Summarize lengthy legal documents into concise, easy-to-understand summaries.',
+    icon: <LockIcon sx={{ fontSize: 36, color: '#0a2463' }} />,
+    title: 'Simple Captcha Verification',
+    desc: 'No login or registration required. Just solve a simple captcha to start chatting.',
     bg: '#e3eafc',
   },
   {
     icon: <HistoryIcon sx={{ fontSize: 36, color: '#d4af37' }} />,
-    title: 'Chat History & Session Tracking',
-    desc: 'Access your previous queries and responses with session-based chat history.',
+    title: 'Session-Based Chat History',
+    desc: 'Your chat history is stored only in your browser for privacy and is cleared when you close the tab.',
     bg: '#fffbe6',
   },
   {
     icon: <LockIcon sx={{ fontSize: 36, color: '#0a2463' }} />,
-    title: 'Secure Authentication',
-    desc: 'Your data is protected with secure login and authentication mechanisms.',
+    title: 'Privacy-Focused',
+    desc: 'No user data or chat history is stored on any server. Everything stays on your device.',
     bg: '#e3eafc',
   },
 ];
@@ -117,9 +118,9 @@ const LandingPage = () => {
                     background: '#c4a030',
                   },
                 }}
-                onClick={() => navigate('/captcha')}
+                onClick={() => navigate('/Nyayadoot/captcha')}
               >
-                Start with Nyayadoot
+                Start with न्यायदूत
               </Button>
             </Grid>
             <Grid item xs={12} md={6}>
@@ -180,17 +181,28 @@ const LandingPage = () => {
             Key Features
           </Typography>
           <Typography align="center" sx={{ mb: 6, color: '#ccc', maxWidth: 700, mx: 'auto' }}>
-            Nyayadoot offers a focused set of tools to empower your legal research and practice.
+            न्यायदूत offers a focused set of tools to empower your legal research and practice.
           </Typography>
           <Grid container spacing={4} justifyContent="center">
             {features.map((feature, idx) => (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={idx < 3 ? 4 : 6}
+                key={idx}
+                sx={{ display: 'flex', justifyContent: 'center' }}
+              >
                 <Card
                   sx={{
                     bgcolor: feature.bg,
                     borderRadius: 4,
                     boxShadow: 4,
                     transition: 'transform 0.3s, box-shadow 0.3s',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
                     '&:hover': {
                       transform: 'translateY(-8px) scale(1.03)',
                       boxShadow: 8,
@@ -220,7 +232,7 @@ const LandingPage = () => {
             Ready to Transform Your Legal Research?
           </Typography>
           <Typography align="center" sx={{ mb: 5, color: '#f3f3f3', fontSize: '1.2rem' }}>
-            Start using Nyayadoot today and experience the future of legal assistance.
+            Start using न्यायदूत today and experience the future of legal assistance.
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Button
@@ -239,9 +251,9 @@ const LandingPage = () => {
                   background: '#c4a030',
                 },
               }}
-              onClick={() => navigate('/captcha')}
+              onClick={() => navigate('/Nyayadoot/captcha')}
             >
-              Start with Nyayadoot
+              Start with न्यायदूत
             </Button>
           </Box>
         </Container>
@@ -249,7 +261,7 @@ const LandingPage = () => {
 
       {/* Footer */}
       <Box sx={{ py: 4, bgcolor: '#121212', textAlign: 'center', color: '#d4af37', fontWeight: 500, fontSize: '1.1rem' }}>
-        © 2025 Nyayadoot. All rights reserved.
+        © 2025 न्यायदूत. All rights reserved.
       </Box>
     </Box>
   );

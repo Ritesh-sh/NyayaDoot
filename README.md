@@ -1,26 +1,21 @@
-# ⚖️ Legal Chatbot
+# ⚖️ Legal Chatbot (NyayaDoot)
 
-An AI-powered legal assistant that enables users to query Indian legal information through an intelligent chatbot interface. It integrates custom-trained legal embeddings, a semantic search engine (FAISS), and a modern web UI with authentication and chat history.
+An AI-powered legal assistant for Indian law. Query legal information through an intelligent chatbot interface with advanced semantic search, a modern web UI, and privacy-first design.
 
 ---
 
 ## 🗂️ Project Structure
 
 ```
-├── legal-ai-service/       # Python backend for AI processing
+├── legal-ai-service/       # Python FastAPI backend for AI processing
 │   ├── main.py             # Main FastAPI app
 │   ├── models/             # Embedding model, FAISS index, and data
 │   ├── requirements.txt    # Python dependencies
-│   └── requirement1.txt    # (possibly unused/legacy requirements)
+│   └── requirement1.txt    # (legacy/alt requirements)
 │
-├── legal-backend/          # Node.js backend (e.g., authentication, chat history)
-│   ├── database schema.sql # MySQL schema for database setup
-│   ├── index.js            # Main server file
-│   └── migrations/         # SQL migration files
-│
-├── legal-frontend/         # React-based frontend
+├── l-frontend/             # React-based frontend (no auth, no DB)
 │   ├── public/             # Static files
-│   ├── src/                # Source code (components, contexts)
+│   ├── src/                # Source code (components, etc.)
 │   └── README.md           # Frontend-specific notes
 │
 ├── .gitignore              # Ignored files and folders
@@ -40,83 +35,7 @@ cd NyayaDoot
 
 ---
 
-### 2. Set Up the Database (MySQL)
-
-A SQL schema file is provided at `legal-backend/database schema.sql`.
-
-**Instructions:**
-1. Open MySQL Workbench (or your preferred MySQL client).
-2. Open the file `legal-backend/database schema.sql`.
-3. Copy and execute the entire schema in your MySQL Workbench to create the required database and tables before running the backend.
-
-**Schema Content:**
-```sql
-CREATE DATABASE legal_chatbot;
-USE legal_chatbot;
-
-CREATE TABLE users (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-select * from users;
-select * from chats;
-CREATE TABLE chats (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT,
-    message TEXT NOT NULL,
-    response TEXT NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
--- Add session_id column to chats table
-ALTER TABLE chats ADD COLUMN session_id VARCHAR(255) NOT NULL DEFAULT 'default_session';
-
--- Create index for faster session lookups
-CREATE INDEX idx_chats_session_id ON chats(session_id);
-
--- Update existing records to have unique session IDs
-UPDATE chats SET session_id = CONCAT('session_', id) WHERE session_id = 'default_session';
-
--- Check if chats table exists
-CREATE TABLE IF NOT EXISTS chats (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    message TEXT NOT NULL,
-    response TEXT NOT NULL,
-    session_id VARCHAR(255) NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
--- Check if session_id column exists
-SELECT COUNT(*) INTO @exists 
-FROM information_schema.columns 
-WHERE table_schema = DATABASE()
-AND table_name = 'chats' 
-AND column_name = 'session_id';
-
--- Add session_id column if it doesn't exist
-SET @sql = IF(@exists = 0,
-    'ALTER TABLE chats ADD COLUMN session_id VARCHAR(255) NOT NULL DEFAULT "default_session"',
-    'SELECT "session_id column already exists"'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
--- Create index for faster session lookups if it doesn't exist
-CREATE INDEX IF NOT EXISTS idx_chats_session_id ON chats(session_id);
-
--- Update existing records to have unique session IDs if they have default_session
-UPDATE chats SET session_id = CONCAT('session_', id) WHERE session_id = 'default_session';
-```
-
----
-
-### 3. Download the Model Files
+### 2. Download the Model Files
 
 The AI model files are too large for Git. Please download the `models/` folder from the following link:
 
@@ -139,76 +58,63 @@ legal-ai-service/models/
 
 ---
 
-### 4. Set Up the Python Backend (`legal-ai-service`)
+### 3. Set Up the Python Backend (`legal-ai-service`)
 
 ```bash
 cd legal-ai-service
 python -m venv venv
 source venv/bin/activate   # On Windows use: venv\Scripts\activate
 pip install -r requirement1.txt
-python main.py             # Runs FastAPI backend
+python main.py             # Runs FastAPI backend (default: http://localhost:8000)
 ```
 
 ---
 
-### 5. Set Up the Node.js Backend (`legal-backend`)
+### 4. Set Up the Frontend (`l-frontend`)
 
 ```bash
-cd legal-backend
+cd l-frontend
 npm install
-# Create a .env file and add your variables
-node index.js
 ```
 
----
-
-### 6. Set Up the Frontend (`legal-frontend`)
+#### Configure FastAPI Backend URL (Optional)
+- Create a `.env` file in `l-frontend`:
+  ```
+  VITE_API_URL=http://localhost:8000
+  ```
+- The frontend will use this URL for all chat requests.
 
 ```bash
-cd legal-frontend
-npm install
-npm start
+npm run dev
 ```
-
-Your frontend will be live at: `http://localhost:3000`
+Your frontend will be live at: `http://localhost:5173`
 
 ---
 
 ## 💡 Features
 
-* 🧠 Semantic legal search using FAISS and Sentence Transformers
-* 💬 Intelligent chatbot for legal queries
-* 🧾 Chat history with session tracking
-* 🔐 Auth system with React context
-* ⚡ FastAPI + Node + React stack
+* 🧠 **Semantic Legal Search** — Find relevant Indian legal information instantly using advanced AI-powered semantic search.
+* 💬 **Intelligent Legal Chatbot** — Ask legal questions and get instant, AI-powered answers tailored to Indian law.
+* 🔐 **Simple Captcha Verification** — No login or registration required. Just solve a simple captcha to start chatting.
+* 🕑 **Session-Based Chat History** — Your chat history is stored only in your browser for privacy and is cleared when you close the tab.
+* 🛡️ **Privacy-Focused** — No user data or chat history is stored on any server. Everything stays on your device.
+* ⚡ **Modern, Accessible UI** — Beautiful, responsive, and accessible interface for all users.
 
 ---
 
 ## 🔒 Environment Variables
 
-Make sure you set the necessary variables in:
-
-* `legal-backend/.env`
-
-Example for `.env` (Node backend):
-
-```env
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=legal_chatbot
-JWT_SECRET=3a7d5f9b2e8c1a6f4d9c0b5e2f8a3d7e1c4f9a6d2b8e3f7a5c9d1e0b4f8
-FASTAPI_URL=http://localhost:8000
-PORT=3001
-```
+- **Backend:**
+  - Set `TOGETHER_API_KEY` in your environment for the FastAPI backend (see `main.py`).
+- **Frontend:**
+  - Set `VITE_API_URL` in `l-frontend/.env` if your backend is not on `localhost:8000`.
 
 ---
 
 ## 📦 Dependencies
 
-* Python: `FastAPI`, `SentenceTransformers`, `FAISS`, `Pickle`
-* Node.js: `Express`, `Mongoose`, `dotenv`
-* React: `React Router`, `Context API`, `MUI`
+* Python: `FastAPI`, `SentenceTransformers`, `FAISS`, `Pickle`, `Together`
+* React: `React Router`, `MUI`
 
 ---
 

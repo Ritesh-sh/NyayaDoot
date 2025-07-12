@@ -6,12 +6,13 @@ import Captcha from './components/Captcha';
 
 function App() {
   return (
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-        <Route path="/captcha" element={<Captcha />} />
-        <Route path="/chat" element={<Chat />} />
-        <Route path="/history" element={<History />} />
-        </Routes>
+    <Routes>
+      <Route path="/Nyayadoot/" element={<LandingPage />} />
+      <Route path="/Nyayadoot/captcha" element={<Captcha />} />
+      <Route path="/Nyayadoot/chat" element={<Chat />} />
+      <Route path="/Nyayadoot/history" element={<History />} />
+      <Route path="/" element={<Navigate to="/Nyayadoot/" replace />} />
+    </Routes>
   );
 }
 

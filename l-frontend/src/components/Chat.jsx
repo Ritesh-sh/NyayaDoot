@@ -119,7 +119,7 @@ export default function Chat() {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const aiResponse = await axios.post(
-        `${API_URL}/process-query`,
+        `${API_URL}/Nyayadoot/process-query`,
         { query: input, session_id: currentSessionId }
       );
       const updatedMessages = [
@@ -165,7 +165,7 @@ export default function Chat() {
     // Call backend to reset session state
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      await axios.post(`${API_URL}/reset-session?session_id=${newSessionId}`);
+      await axios.post(`${API_URL}/Nyayadoot/reset-session?session_id=${newSessionId}`);
     } catch (e) {
       // Ignore errors, just a safety measure
     }
@@ -183,7 +183,7 @@ export default function Chat() {
   };
 
   const handleLogout = () => {
-    navigate('/');
+    navigate('/Nyayadoot/');
   };
 
   return (

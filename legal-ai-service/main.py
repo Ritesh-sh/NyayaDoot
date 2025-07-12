@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, APIRouter
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import faiss
@@ -19,6 +19,10 @@ from together import Together
 import uvicorn
 import os
 import uuid
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Try to import Together AI SDK, auto-install if not available
 together_sdk_available = False
@@ -1138,6 +1142,8 @@ def detect_impact_query(query: str) -> bool:
 
 app = FastAPI()
 
+router = APIRouter(prefix="/Nyayadoot")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -1156,7 +1162,7 @@ class ResponseModel(BaseModel):
     is_follow_up: bool
     session_id: str
 
-@app.post("/process-query", response_model=ResponseModel)
+@router.post("/process-query", response_model=ResponseModel)
 async def process_legal_query(request: ProcessQueryRequest):
     print(f"Received session_id: {request.session_id}")
     try:
@@ -1424,11 +1430,13 @@ For specific legal advice tailored to your situation, please consult with a lega
         print(f"Outer exception: {outer_e}")
         raise HTTPException(status_code=500, detail=str(outer_e))
 
-@app.post("/reset-session")
+@router.post("/reset-session")
 async def reset_session(session_id: str = Query(...)):
     if session_id in conv_state.sessions:
         del conv_state.sessions[session_id]
     return {"status": "reset"}
+
+app.include_router(router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
