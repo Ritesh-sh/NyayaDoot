@@ -21,19 +21,20 @@ import os
 import uuid
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+
 load_dotenv()
 
-# Try to import Together AI SDK, auto-install if not available
+
 together_sdk_available = False
 together_client = None
 
 
 
-# Set device
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Together AI setup
+
+
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
 if not TOGETHER_API_KEY:
     print("⚠️ Warning: TOGETHER_API_KEY environment variable not set.")
@@ -164,23 +165,23 @@ def extract_keywords_from_conversation(conversation_history: str, query: str) ->
     # Combine all keywords
     all_keywords = legal_keywords + common_keywords
     
-    # Remove duplicates and join with commas
+
     unique_keywords = list(set(all_keywords))
     
-    # Default keywords if nothing found
+   
     if not unique_keywords:
         return "legal rights obligations duties"
     
-    return ", ".join(unique_keywords[:15])  # Limit to 15 keywords
+    return ", ".join(unique_keywords[:15])  
 
 
 def find_relevant_sections(query: str, conversation_history: str = "") -> List[Dict]:
     """Find legal sections relevant to the query using simple semantic search"""
     try:
-        # Combine query with conversation history for better context
+        
         search_query = query
         if conversation_history:
-            # Add conversation history to provide context
+            
             search_query = f"{conversation_history} {query}"
         
         # Get results using embedding search

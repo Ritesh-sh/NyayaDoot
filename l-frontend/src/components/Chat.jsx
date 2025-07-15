@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Button, TextField, Container, Box, Typography, IconButton,
   Drawer, List, ListItem, ListItemText, Divider, AppBar, Toolbar,
-  CssBaseline, createTheme, ThemeProvider, Chip, Tooltip
+  CssBaseline, createTheme, ThemeProvider, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import { Menu as MenuIcon, Logout } from '@mui/icons-material';
 import ChatMessage from './ChatMessage';
@@ -22,6 +22,11 @@ export default function Chat() {
     }
     return Date.now().toString();
   });
+  const [showPopup, setShowPopup] = useState(false);
+  // Remove consecutiveUserCount, add userMessageCount
+  const [userMessageCount, setUserMessageCount] = useState(0);
+  // Make threshold easy to change
+  const POPUP_THRESHOLD = 5;
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
 
@@ -116,6 +121,13 @@ export default function Chat() {
     const newMessages = [...messages, { type: 'user', content: input }];
     setMessages(newMessages);
     setLoading(true);
+    // Count total user messages
+    const newUserMessageCount = userMessageCount + 1;
+    setUserMessageCount(newUserMessageCount);
+    // Show popup on every POPUP_THRESHOLD-th user message
+    if (newUserMessageCount % POPUP_THRESHOLD === 0) {
+      setShowPopup(true);
+    }
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const aiResponse = await axios.post(
@@ -162,6 +174,7 @@ export default function Chat() {
     setMessages([]);
     setCurrentSessionId(newSessionId);
     setDrawerOpen(false);
+    setUserMessageCount(0);
     // Call backend to reset session state
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -189,6 +202,20 @@ export default function Chat() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      {/* Popup Dialog for every 10th user message */}
+      <Dialog open={showPopup} onClose={() => setShowPopup(false)}>
+        <DialogTitle>For Better Assistance</DialogTitle>
+        <DialogContent>
+          <Typography>
+            For better assistance, please visit <b>[Your Page Link Here]</b>.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowPopup(false)} color="primary" variant="contained">
+            Later
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#121212' }}>
         <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
           <Box sx={{ width: 300, p: 2, bgcolor: '#1E293B', height: '100%' }}>
