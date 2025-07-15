@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
-  Button, TextField, Container, Box, Typography, IconButton,
+  Button, TextField, Container, Box, Typography, Link, IconButton,
   Drawer, List, ListItem, ListItemText, Divider, AppBar, Toolbar,
   CssBaseline, createTheme, ThemeProvider, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
@@ -207,7 +207,10 @@ export default function Chat() {
         <DialogTitle>For Better Assistance</DialogTitle>
         <DialogContent>
           <Typography>
-            For better assistance, please visit <b>[Your Page Link Here]</b>.
+            For better assistance, please visit{' '}
+            <Link href="https://moodle.spit.ac.in/login/index.php" target="_blank" rel="noopener noreferrer">
+              <b>Click Here</b>
+            </Link>.
           </Typography>
         </DialogContent>
         <DialogActions>

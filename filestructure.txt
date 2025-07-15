@@ -21,13 +21,11 @@
         |-- assets
             |-- react.svg
         |-- components
-            |-- Auth.jsx
+            |-- Captcha.jsx
             |-- Chat.jsx
             |-- ChatMessage.jsx
             |-- History.jsx
             |-- LandingPage.jsx
-        |-- contexts
-            |-- AuthContext.jsx
         |-- index.css
         |-- logo.svg
             |-- logo.svg
@@ -36,6 +34,8 @@
         |-- setupTests.js
     |-- vite.config.js
 |-- legal-ai-service
+    |-- .env
+    |-- .gitignore
     |-- main.py
     |-- models
         |-- legal_embedding_model
@@ -54,47 +54,9 @@
             |-- vocab.txt
         |-- legal_index.faiss
         |-- legal_sections.pkl
+    |-- README_ENV_SETUP.md
     |-- requirement1.txt
     |-- requirements.txt
     |-- __pycache__
         |-- main.cpython-312.pyc
-|-- legal-backend
-    |-- .env
-    |-- database schema.sql
-    |-- index.js
-    |-- migrations
-        |-- add_session_id.sql
-        |-- check_chats_table.sql
-    |-- package-lock.json
-    |-- package.json
-|-- legal-frontend
-    |-- .gitignore
-    |-- package-lock.json
-    |-- package.json
-    |-- public
-        |-- favicon.ico
-        |-- index.html
-        |-- logo192.png
-        |-- logo512.png
-        |-- manifest.json
-        |-- robots.txt
-    |-- README.md
-    |-- src
-        |-- App.css
-        |-- App.js
-        |-- App.test.js
-        |-- components
-            |-- Auth.jsx
-            |-- Chat.jsx
-            |-- ChatMessage.jsx
-            |-- History.jsx
-            |-- LandingPage.jsx
-        |-- contexts
-            |-- AuthContext.js
-        |-- index.css
-        |-- index.js
-        |-- logo.svg
-        |-- reportWebVitals.js
-        |-- setupTests.js
 |-- README.md
-|-- Use_Case_Specification_Table.docx
