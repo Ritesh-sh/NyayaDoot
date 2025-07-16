@@ -1,20 +1,12 @@
-fastapi==0.68.1
-uvicorn==0.15.0
-pydantic==1.8.2
-python-multipart
-python-jose[cryptography]
-passlib[bcrypt]
-sqlalchemy
-pymysql
-sentence-transformers==2.1.0
+fastapi==0.95.0
+uvicorn==0.23.0
+pydantic==2.4.0
+faiss-cpu==1.7.4.post2          # ✅ Prebuilt — avoids pyproject.toml hang
 torch==2.5.0
-faiss-cpu==1.7.2
-transformers
-selenium==4.1.0
-webdriver-manager==3.5.2
-langchain==0.0.267
-langchain-community==0.0.10
-langchain-core==0.1.10
-langchain-together==0.0.1
-huggingface-hub==0.16.4
-python-dotenv==0.19.0
+sentence-transformers==2.2.2    # ✅ Compatible with torch 2.5.0
+transformers==4.33.3            # ✅ Stable & compatible with sentence-transformers
+scipy==1.11.4                   # ✅ Required by sentence-transformers
+numpy==1.25.2
+selenium==4.14.0
+webdriver-manager==4.0.0
+togetherai==0.1.10
