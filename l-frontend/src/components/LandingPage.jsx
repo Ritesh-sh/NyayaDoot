@@ -22,6 +22,11 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import CloseIcon from '@mui/icons-material/Close';
 import BalanceIcon from '@mui/icons-material/Balance';
+import PhoneIcon from '@mui/icons-material/Phone';
+import EmailIcon from '@mui/icons-material/Email';
+import LinkedInIcon from '@mui/icons-material/LinkedIn';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import GitHubIcon from '@mui/icons-material/GitHub';
 
 const heroBg = 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
 
@@ -132,14 +137,96 @@ const LandingPage = () => {
             Under the guidance of <span style={{ color: '#d4af37', fontWeight: 900, fontSize: '1.35rem', textShadow: '0 1px 8px #0a2463', whiteSpace: 'nowrap' }}>Dr. Aarti Karande</span>
           </Typography>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ color: '#d4af37', fontWeight: 700, mb: 1 }}>
+            <Typography variant="h6" sx={{ color: '#2196f3', fontWeight: 700, mb: 1, letterSpacing: 1 }}>
               Contact Us
             </Typography>
-            <Typography variant="body1" sx={{ color: '#fff', fontSize: '1.1rem' }}>
-              <a href="mailto:sharmaji9579@gmail.com" style={{ color: '#d4af37', textDecoration: 'none', fontWeight: 600 }}>
-                sharmaji9579@gmail.com
-              </a>
-            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'row', gap: 3, justifyContent: 'center', alignItems: 'center', mt: 1 }}>
+              <IconButton
+                component="a"
+                href="tel:+917219274799"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: '#4caf50', 
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.25) translateY(-4px)',
+                    bgcolor: 'rgba(76,175,80,0.08)',
+                  },
+                }}
+                size="large"
+              >
+                <PhoneIcon fontSize="inherit" />
+              </IconButton>
+              <IconButton
+                component="a"
+                href="mailto:sharmaji9579@gmail.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: '#d93025', 
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.25) translateY(-4px)',
+                    bgcolor: 'rgba(217,48,37,0.08)',
+                  },
+                }}
+                size="large"
+              >
+                <EmailIcon fontSize="inherit" />
+              </IconButton>
+              <IconButton
+                component="a"
+                href="https://www.linkedin.com/in/ritesh-sharma-451279295" 
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: '#0a66c2', 
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.25) translateY(-4px)',
+                    bgcolor: 'rgba(10,102,194,0.08)',
+                  },
+                }}
+                size="large"
+              >
+                <LinkedInIcon fontSize="inherit" />
+              </IconButton>
+              <IconButton
+                component="a"
+                href="https://maps.google.com/?q=SPIT+Mumbai" 
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: '#ea4335', 
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.25) translateY(-4px)',
+                    bgcolor: 'rgba(234,67,53,0.08)',
+                  },
+                }}
+                size="large"
+              >
+                <LocationOnIcon fontSize="inherit" />
+              </IconButton>
+              <IconButton
+                component="a"
+                href="https://github.com/Ritesh-sh" 
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: '#fff', 
+                  transition: 'transform 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.25) translateY(-4px)',
+                    bgcolor: 'rgba(255,255,255,0.08)',
+                  },
+                }}
+                size="large"
+              >
+                <GitHubIcon fontSize="inherit" />
+              </IconButton>
+            </Box>
           </Box>
         </DialogContent>
       </Dialog>
