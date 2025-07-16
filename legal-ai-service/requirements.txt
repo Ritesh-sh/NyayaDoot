@@ -3,7 +3,7 @@ uvicorn==0.29.0
 pydantic==2.6.4
 faiss-cpu==1.8.0
 numpy==1.26.4
-torch==2.2.2
+torch==2.7.1
 sentence-transformers==2.7.0
 selenium==4.19.0
 webdriver-manager==4.0.1
