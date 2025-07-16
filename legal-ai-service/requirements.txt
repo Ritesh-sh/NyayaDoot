@@ -7,7 +7,7 @@ passlib[bcrypt]
 sqlalchemy
 pymysql
 sentence-transformers==2.1.0
-torch==1.9.0
+torch==2.5.0
 faiss-cpu==1.7.2
 transformers
 selenium==4.1.0

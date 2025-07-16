@@ -2,7 +2,7 @@ fastapi==0.95.0
 uvicorn==0.23.0
 pydantic==2.4.0
 faiss-cpu==1.7.4
-torch==2.0.1
+torch==2.5.0
 sentence-transformers==2.2.2
 selenium==4.14.0
 webdriver-manager==4.0.0
