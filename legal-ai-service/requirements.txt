@@ -1,7 +1,7 @@
 fastapi==0.95.0
 uvicorn==0.23.0
 pydantic==2.4.0
-faiss-cpu==1.7.4.post2          # ✅ Prebuilt — avoids pyproject.toml hang
+faiss-cpu==1.7.4          # ✅ Prebuilt — avoids pyproject.toml hang
 torch==2.5.0
 sentence-transformers==2.2.2    # ✅ Compatible with torch 2.5.0
 transformers==4.33.3            # ✅ Stable & compatible with sentence-transformers
