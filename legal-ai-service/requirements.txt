@@ -7,6 +7,7 @@ faiss-cpu==1.7.4
 numpy==1.25.2
 torch==2.0.1
 sentence-transformers==2.2.2
+huggingface_hub==0.10.1
 selenium==4.14.0
 webdriver-manager==4.0.0
 together
