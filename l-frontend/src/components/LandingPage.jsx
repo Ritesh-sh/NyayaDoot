@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -15,6 +15,13 @@ import SearchIcon from '@mui/icons-material/Search';
 import DescriptionIcon from '@mui/icons-material/Description';
 import HistoryIcon from '@mui/icons-material/History';
 import LockIcon from '@mui/icons-material/Lock';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import CloseIcon from '@mui/icons-material/Close';
+import BalanceIcon from '@mui/icons-material/Balance';
 
 const heroBg = 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
 
@@ -54,9 +61,88 @@ const features = [
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+
+  const handleOpen = () => setOpen(true);
+  const handleClose = () => setOpen(false);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#121212', color: 'white', fontFamily: 'Segoe UI, Arial, sans-serif' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#121212', color: 'white', fontFamily: 'Segoe UI, Arial, sans-serif', position: 'relative' }}>
+      {/* Floating IconButton at top-right */}
+      <Tooltip title="About न्यायदूत" placement="left">
+        <IconButton
+          onClick={handleOpen}
+          sx={{
+            position: 'fixed',
+            top: 24,
+            right: 32,
+            zIndex: 2000,
+            bgcolor: '#fff',
+            color: '#0a2463',
+            boxShadow: 4,
+            '&:hover': { bgcolor: '#d4af37', color: '#0a2463' },
+          }}
+          size="large"
+        >
+          <BalanceIcon sx={{ fontSize: 32 }} />
+        </IconButton>
+      </Tooltip>
+      {/* About Dialog */}
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 5, // More curved corners
+            overflow: 'hidden',
+            bgcolor: '#181818',
+            minWidth: 420,
+          }
+        }}
+      >
+        <DialogTitle sx={{ bgcolor: '#0a2463', color: '#d4af37', fontWeight: 700, textAlign: 'center', pb: 1, position: 'relative' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 1 }}>
+            <span style={{ fontWeight: 900, fontSize: '2.5rem', color: '#d4af37', letterSpacing: 2, fontFamily: 'inherit', marginBottom: 4 }}>
+              न्यायदूत
+            </span>
+            <span style={{ fontSize: '1.2rem', color: '#fff', fontWeight: 600, marginBottom: 0 }}>
+              Made with <span role="img" aria-label="balance">⚖️</span>
+            </span>
+          </Box>
+          <IconButton
+            aria-label="close"
+            onClick={handleClose}
+            sx={{ position: 'absolute', right: 8, top: 8, color: '#fff' }}
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ bgcolor: '#181818', color: '#fff', textAlign: 'center', pt: 3, pb: 2 }}>
+          <Typography variant="h6" sx={{ color: '#d4af37', fontWeight: 700, mb: 2 }}>
+            Project Creators
+          </Typography>
+          <Typography variant="body1" sx={{ fontSize: '1.15rem', mb: 1, color: '#fff', fontWeight: 700, textAlign: 'center' }}>
+            <span style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>
+              Ritesh Sharma, Pranita Aware, Shardul Bhagade
+            </span>
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#ccc', mb: 2 }}>
+            We are the students of SY-MCA, SPIT, Mumbai
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#d4af37', fontWeight: 600, mb: 3, fontSize: '1.25rem', textAlign: 'center', letterSpacing: 1 }}>
+            Under the guidance of <span style={{ color: '#d4af37', fontWeight: 900, fontSize: '1.35rem', textShadow: '0 1px 8px #0a2463', whiteSpace: 'nowrap' }}>Dr. Aarti Karande</span>
+          </Typography>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="h6" sx={{ color: '#d4af37', fontWeight: 700, mb: 1 }}>
+              Contact Us
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#fff', fontSize: '1.1rem' }}>
+              <a href="mailto:sharmaji9579@gmail.com" style={{ color: '#d4af37', textDecoration: 'none', fontWeight: 600 }}>
+                sharmaji9579@gmail.com
+              </a>
+            </Typography>
+          </Box>
+        </DialogContent>
+      </Dialog>
       {/* Hero Section */}
       <Box
         sx={{
