@@ -15,7 +15,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from fastapi.middleware.cors import CORSMiddleware
-import together  # Updated import for new together API
+from together import Together
 import uvicorn
 import os
 import uuid
@@ -25,12 +25,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+together_sdk_available = False
+together_client = None
+
+
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
 if not TOGETHER_API_KEY:
     print("⚠️ Warning: TOGETHER_API_KEY environment variable not set.")
     print("Please set this key to use Together AI models.")
     print("You can get a free API key at https://www.together.ai/")
-together.api_key = TOGETHER_API_KEY  # Set API key for new together API
+together_client = Together(api_key=TOGETHER_API_KEY)
 print("✅ Together AI SDK initialized successfully!")
 
 # Load models
@@ -467,7 +477,7 @@ def fetch_cases_from_api_suggestions(api_response: str) -> List[Dict]:
     return results[:3]  # Return up to 3 results
 
 def generate_with_together(prompt: str) -> str:
-    """Generate text with fallback mechanisms if API fails (updated for new together API)"""
+    """Generate text with fallback mechanisms if API fails"""
     try:
         # More aggressive token optimization
         if len(prompt) > 1000:  # Reduced from 4000
@@ -481,17 +491,29 @@ def generate_with_together(prompt: str) -> str:
             # Alternatively, trim very long text
             elif len(prompt) > 6000:
                 prompt = prompt[:1500] + "\n...[content trimmed]...\n" + prompt[-1500:]
+        
         print(f"Prompt length: {len(prompt)} characters")
+        
         # Try Together AI with multiple models
-        # Use new together API for chat completion
-        response = together.ChatCompletion.create(
-            model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-            max_tokens=256
-        )
-        # Extract and return the response
-        return response["choices"][0]["message"]["content"]
+        if together_client is not None:
+            # List of models to try, in order of preference
+            
+            print(f"Trying model: model")
+            completion = together_client.chat.completions.create(
+                model= "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.5,
+                max_tokens=256
+            )
+                    
+                    # Extract and return the response
+            return completion.choices[0].message.content
+                # Try next model
+            
+            # 
+        else:
+            # Return a useful fallback response if Together client is not available
+            return "I couldn't generate a response because the AI service is not configured. For legal issues, it's best to consult with a qualified lawyer who can provide advice specific to your situation and jurisdiction."
     except Exception as e:
         print(f"Error generating response: {e}")
         return "I'm having trouble connecting to my knowledge source. For legal matters, it's always best to consult with a qualified attorney who can provide personalized advice."
@@ -500,19 +522,22 @@ def is_legal_query_together(query: str) -> bool:
     """
     Uses Together AI to determine if the query is legal in nature.
     Returns True if legal, False otherwise.
-    (Updated for new together API)
     """
     prompt = f"""You are a classifier. Decide if the following user query is a legal question (about laws, rights, legal procedures, court cases, contracts, etc). \
 Reply with only 'LEGAL' or 'NOT LEGAL'.\n\nQuery: \"{query}\"\n"""
     try:
-        response = together.ChatCompletion.create(
-            model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=5
-        )
-        result = response["choices"][0]["message"]["content"].strip().upper()
-        return result == "LEGAL"
+        if together_client is not None:
+            completion = together_client.chat.completions.create(
+                model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=5
+            )
+            result = completion.choices[0].message.content.strip().upper()
+            return result == "LEGAL"
+        else:
+            # Fallback: assume legal (or you can default to False)
+            return True
     except Exception as e:
         print(f"Error in legal query classification: {e}")
         # Fallback: assume legal (or you can default to False)
