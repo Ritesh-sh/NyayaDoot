@@ -208,7 +208,7 @@ export default function Chat() {
         <DialogContent>
           <Typography>
             For better assistance, please visit{' '}
-            <Link href="https://moodle.spit.ac.in/login/index.php" target="_blank" rel="noopener noreferrer">
+            <Link href="http://82.112.226.107/vaadvivaad/" target="_blank" rel="noopener noreferrer">
               <b>Click Here</b>
             </Link>.
           </Typography>
