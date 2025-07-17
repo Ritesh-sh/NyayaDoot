@@ -9,19 +9,22 @@ import {
 import { Menu as MenuIcon, Logout } from '@mui/icons-material';
 import ChatMessage from './ChatMessage';
 
+// Custom session ID generator (no crypto)
+function generateSessionId() {
+  return (
+    Date.now().toString(36) +
+    Math.random().toString(36).substring(2, 10)
+  );
+}
+
 export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // Initialize currentSessionId to a unique value
-  const [currentSessionId, setCurrentSessionId] = useState(() => {
-    if (window.crypto && window.crypto.randomUUID) {
-      return window.crypto.randomUUID();
-    }
-    return Date.now().toString();
-  });
+  // Use only generateSessionId for session ID
+  const [currentSessionId, setCurrentSessionId] = useState(() => generateSessionId());
   const [showPopup, setShowPopup] = useState(false);
   // Remove consecutiveUserCount, add userMessageCount
   const [userMessageCount, setUserMessageCount] = useState(0);
@@ -158,13 +161,6 @@ export default function Chat() {
       setInput('');
       setLoading(false);
     }
-  };
-
-  const generateSessionId = () => {
-    if (window.crypto && window.crypto.randomUUID) {
-      return window.crypto.randomUUID();
-    }
-    return Date.now().toString();
   };
 
   // When user starts a new chat, clear messages and update sessionStorage
