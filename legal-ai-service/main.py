@@ -245,6 +245,10 @@ def fetch_kanoon_results(query: str, conversation_history: str = "") -> List[Dic
     print(f"Case search query: {search_query}")
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.binary_location = "/usr/bin/chromium-browser"
     driver = None
     try:
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
@@ -320,6 +324,10 @@ def fetch_specific_case_from_kanoon(case_name: str) -> Dict:
     print(f"Searching for specific case: {case_name}")
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.binary_location = "/usr/bin/chromium-browser"
     driver = None
     try:
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)

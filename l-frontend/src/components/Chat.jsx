@@ -9,7 +9,7 @@ import {
 import { Menu as MenuIcon, Logout } from '@mui/icons-material';
 import ChatMessage from './ChatMessage';
 
-// Custom session ID generator (no crypto)
+
 function generateSessionId() {
   return (
     Date.now().toString(36) +
