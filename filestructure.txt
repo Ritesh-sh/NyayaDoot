@@ -60,4 +60,5 @@
     |-- runtime.txt
     |-- __pycache__
         |-- main.cpython-312.pyc
+|-- LICENSE
 |-- README.md
