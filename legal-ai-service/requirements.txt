@@ -7,7 +7,7 @@ faiss-cpu==1.10.0
 numpy==2.2.4
 torch==2.6.0
 sentence-transformers==4.1.0
-
+google-generativeai
 selenium==4.31.0
 webdriver-manager==4.0.2
 together==1.5.6

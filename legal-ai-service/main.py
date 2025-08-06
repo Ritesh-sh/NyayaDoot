@@ -15,34 +15,16 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from fastapi.middleware.cors import CORSMiddleware
-from together import Together
 import uvicorn
 import os
 import uuid
 from dotenv import load_dotenv
+import google.generativeai as genai
 
 
 load_dotenv()
 
-
-together_sdk_available = False
-together_client = None
-
-
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-
-TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY", "")
-if not TOGETHER_API_KEY:
-    print("⚠️ Warning: TOGETHER_API_KEY environment variable not set.")
-    print("Please set this key to use Together AI models.")
-    print("You can get a free API key at https://www.together.ai/")
-together_client = Together(api_key=TOGETHER_API_KEY)
-print("✅ Together AI SDK initialized successfully!")
-
 # Load models
 print("🔍 Loading models...")
 model = SentenceTransformer("models/legal_embedding_model")
@@ -205,8 +187,7 @@ def find_relevant_sections(query: str, conversation_history: str = "") -> List[D
             """
             
             try:
-                relevance_explanation = generate_with_together(prompt)
-                # Clean up the explanation
+                relevance_explanation = generate_with_gemini(prompt)
                 relevance_explanation = relevance_explanation.strip()
                 if relevance_explanation.startswith('"') and relevance_explanation.endswith('"'):
                     relevance_explanation = relevance_explanation[1:-1]
@@ -248,7 +229,6 @@ def fetch_kanoon_results(query: str, conversation_history: str = "") -> List[Dic
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.binary_location = "/usr/bin/chromium-browser"
     driver = None
     try:
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
@@ -327,7 +307,6 @@ def fetch_specific_case_from_kanoon(case_name: str) -> Dict:
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.binary_location = "/usr/bin/chromium-browser"
     driver = None
     try:
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
@@ -338,7 +317,7 @@ def fetch_specific_case_from_kanoon(case_name: str) -> Dict:
         # Use quotes to search for exact phrase
         search_query = f'"{case_name}"'
         search_box.send_keys(search_query + Keys.RETURN)
-        time.sleep(3)
+        time.sleep(3);
         
         # Try to get the first (most relevant) result
         case_elements = driver.find_elements(By.CSS_SELECTOR, "div.result_title > a")
@@ -484,71 +463,34 @@ def fetch_cases_from_api_suggestions(api_response: str) -> List[Dict]:
     
     return results[:3]  # Return up to 3 results
 
-def generate_with_together(prompt: str) -> str:
-    """Generate text with fallback mechanisms if API fails"""
+def generate_with_gemini(prompt: str) -> str:
+    """Generate text using Gemini API with fallback."""
     try:
-        # More aggressive token optimization
-        if len(prompt) > 1000:  # Reduced from 4000
-            # For multiline prompts, trim more aggressively
+        if len(prompt) > 1000:
             prompt_lines = prompt.split('\n')
             if len(prompt_lines) > 20:
-                # Keep intro and conclusion but trim the middle
-                prompt = '\n'.join(prompt_lines[:10] + 
-                                  ['\n...[content trimmed]...\n'] + 
-                                  prompt_lines[-10:])
-            # Alternatively, trim very long text
+                prompt = '\n'.join(prompt_lines[:10] + ['\n...[content trimmed]...\n'] + prompt_lines[-10:])
             elif len(prompt) > 6000:
                 prompt = prompt[:1500] + "\n...[content trimmed]...\n" + prompt[-1500:]
-        
         print(f"Prompt length: {len(prompt)} characters")
-        
-        # Try Together AI with multiple models
-        if together_client is not None:
-            # List of models to try, in order of preference
-            
-            print(f"Trying model: model")
-            completion = together_client.chat.completions.create(
-                model= "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.5,
-                max_tokens=256
-            )
-                    
-                    # Extract and return the response
-            return completion.choices[0].message.content
-                # Try next model
-            
-            # 
-        else:
-            # Return a useful fallback response if Together client is not available
-            return "I couldn't generate a response because the AI service is not configured. For legal issues, it's best to consult with a qualified lawyer who can provide advice specific to your situation and jurisdiction."
+        return gemini_generate(prompt)
     except Exception as e:
         print(f"Error generating response: {e}")
         return "I'm having trouble connecting to my knowledge source. For legal matters, it's always best to consult with a qualified attorney who can provide personalized advice."
 
-def is_legal_query_together(query: str) -> bool:
+# Replace Together AI legal classifier with Gemini
+
+def is_legal_query_gemini(query: str) -> bool:
     """
-    Uses Together AI to determine if the query is legal in nature.
+    Uses Gemini to determine if the query is legal in nature.
     Returns True if legal, False otherwise.
     """
-    prompt = f"""You are a classifier. Decide if the following user query is a legal question (about laws, rights, legal procedures, court cases, contracts, etc). \
-Reply with only 'LEGAL' or 'NOT LEGAL'.\n\nQuery: \"{query}\"\n"""
+    prompt = f"You are a classifier. Decide if the following user query is a legal question (about laws, rights, legal procedures, court cases, contracts, etc). Reply with only 'LEGAL' or 'NOT LEGAL'.\n\nQuery: \"{query}\"\n"
     try:
-        if together_client is not None:
-            completion = together_client.chat.completions.create(
-                model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
-                max_tokens=5
-            )
-            result = completion.choices[0].message.content.strip().upper()
-            return result == "LEGAL"
-        else:
-            # Fallback: assume legal (or you can default to False)
-            return True
+        result = gemini_generate(prompt, max_tokens=5, temperature=0.0).strip().upper()
+        return result == "LEGAL"
     except Exception as e:
         print(f"Error in legal query classification: {e}")
-        # Fallback: assume legal (or you can default to False)
         return True
 
 
@@ -581,7 +523,7 @@ def generate_direct_answer(query: str, context: str = "", conversation_history: 
     Format your response as 3 clear, actionable steps the person should take.
     Keep each step brief and practical.
     """
-    answer = generate_with_together(prompt)
+    answer = generate_with_gemini(prompt)
     return answer if answer else "Immediate steps:\n1. Consult with a qualified lawyer\n2. Document all relevant information\n3. Keep records of all communications"
 
 def generate_legal_analysis(text: str, act_name: str, section_number: str) -> Dict:
@@ -867,7 +809,7 @@ def generate_case_law_response(query: str, conversation_history: str = "") -> st
     """
     
     try:
-        response = generate_with_together(prompt)
+        response = generate_with_gemini(prompt)
         
         # Format the response with the cases
         formatted_response = "**Relevant Case Law:**\n\n" + response + "\n\n"
@@ -883,10 +825,8 @@ def generate_case_law_response(query: str, conversation_history: str = "") -> st
         print(f"Case law response generation error: {e}")
         default_response = "**Relevant Case Law:**\n\n"
         default_response += "Based on the information provided, these cases may be relevant to your situation:\n\n"
-        
         for case in cases:
             default_response += f"• [{case['title']}]({case['url']})\n"
-            
         return default_response
 
 def search_relevant_sections(query: str, query_type: str, conversation_history: str = "") -> List[Dict]:
@@ -1032,7 +972,7 @@ def analyze_legal_impact(query: str, conversation_history: str = "", context: st
         """
 
         # Generate impact analysis using Together AI
-        impact_analysis = generate_with_together(impact_prompt)
+        impact_analysis = generate_with_gemini(impact_prompt)
         
         if not impact_analysis or len(impact_analysis.strip()) < 50:
             # Fallback response if AI generation fails
@@ -1103,8 +1043,6 @@ def analyze_legal_impact(query: str, conversation_history: str = "", context: st
 def detect_impact_query(query: str) -> bool:
     """Detect if the user is asking about the impact of their legal issue"""
     query_lower = query.lower()
-    
-    # Primary impact keywords that clearly indicate impact analysis requests
     primary_impact_keywords = [
         'impact', 'effect', 'consequence', 'result', 'outcome', 'implication',
         'what will happen', 'what happens if', 'how will this affect',
@@ -1114,40 +1052,45 @@ def detect_impact_query(query: str) -> bool:
         'financial impact', 'legal impact', 'personal impact', 'professional impact',
         'long term effects', 'lasting consequences', 'future implications'
     ]
-    
-    # Check for primary impact keywords first
     for keyword in primary_impact_keywords:
         if keyword in query_lower:
             return True
-    
-    # Secondary impact indicators that need more context
     secondary_impact_indicators = [
         'penalty', 'punishment', 'fine', 'damage', 'loss', 'risk'
     ]
-    
-    # For secondary indicators, check if they're used in impact context
     for indicator in secondary_impact_indicators:
         if indicator in query_lower:
-            # Check if it's used in an impact-related context
             impact_context_words = ['what', 'how', 'tell me about', 'explain', 'describe', 'analyze']
             for context_word in impact_context_words:
                 if context_word in query_lower:
                     return True
-    
-    # Check for question patterns that suggest impact analysis
     impact_questions = [
         'what if', 'what about', 'how about', 'what about the',
         'tell me about', 'explain the', 'describe the', 'analyze the'
     ]
-    
     for pattern in impact_questions:
         if pattern in query_lower:
-            # Additional check to see if it's followed by impact-related terms
             words_after = query_lower.split(pattern)[-1].split()
             if any(word in ['impact', 'effect', 'consequence', 'result', 'outcome'] for word in words_after[:3]):
                 return True
-    
     return False
+
+# Gemini API helper function
+
+def gemini_generate(prompt: str, max_tokens: int = 256, temperature: float = 0.5) -> str:
+    import google.generativeai as genai
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    genai.configure(api_key=GEMINI_API_KEY)
+    try:
+        model = genai.GenerativeModel('gemini-2.0-flash-lite')
+        response = model.generate_content(prompt, generation_config={
+            "max_output_tokens": max_tokens,
+            "temperature": temperature
+        })
+        return response.text.strip()
+    except Exception as e:
+        print(f"Gemini error: {e}")
+        return "I'm having trouble connecting to my knowledge source. For legal matters, it's always best to consult with a qualified attorney who can provide personalized advice."
 
 app = FastAPI()
 
@@ -1192,7 +1135,7 @@ async def process_legal_query(request: ProcessQueryRequest):
 
         # --- LEGAL QUERY CHECK ONLY FOR FIRST QUERY ---
         if is_first_query:
-            if not is_legal_query_together(query):
+            if not is_legal_query_gemini(query):
                 return ResponseModel(
                     answer="I am not trained for this thing.",
                     references=[],
