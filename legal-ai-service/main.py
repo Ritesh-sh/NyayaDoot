@@ -1,14 +1,9 @@
 from fastapi import FastAPI, HTTPException, Query, APIRouter
 from pydantic import BaseModel
 from typing import List, Dict, Optional
-import faiss
-import pickle
-import numpy as np
-import torch
 import re
 import html
 import time
-from sentence_transformers import SentenceTransformer
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -21,25 +16,7 @@ import uuid
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-
 load_dotenv()
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Load models
-print("🔍 Loading models...")
-model = SentenceTransformer("models/legal_embedding_model")
-
-# Load FAISS index and section data
-print("📂 Loading FAISS index...")
-index = faiss.read_index("models/legal_index.faiss")
-
-print("📚 Loading section data...")
-with open("models/legal_sections.pkl", "rb") as f:
-    data = pickle.load(f)
-    section_data = data['section_data']
-    all_acts = data['all_acts']
-
-print("✅ All models loaded successfully!")
 
 class ConversationState:
     def __init__(self):
@@ -158,239 +135,194 @@ def extract_keywords_from_conversation(conversation_history: str, query: str) ->
 
 
 def find_relevant_sections(query: str, conversation_history: str = "") -> List[Dict]:
-    """Find legal sections relevant to the query using simple semantic search"""
+    """Use Gemini to suggest relevant Act/Section pairs directly (no local mapping)."""
     try:
-        
-        search_query = query
-        if conversation_history:
-            
-            search_query = f"{conversation_history} {query}"
-        
-        # Get results using embedding search
-        query_embedding = model.encode([search_query])
-        D, I = index.search(query_embedding, 3)  # Get top 3 results
-        
-        # Process results
-        results = []
-        for i, idx in enumerate(I[0]):
-            section = section_data[idx]
-            
-            # Generate explanation using Together AI
-            prompt = f"""
-            Explain in one sentence how this legal section is relevant to the user's query.
-            Be specific about the connection between the section and the query.
+        context = f"Previous: {conversation_history}\n" if conversation_history else ""
+        prompt = (
+            "You are a legal assistant for Indian law. Given the user's question, "
+            "suggest up to 3 highly relevant statute sections as ActName|SectionNumber|Why.\n"
+            "Only output lines in this exact pipe-delimited format, no extra text.\n"
+            f"{context}Question: {query}"
+        )
+        raw = generate_with_gemini(prompt)
+        lines = [l.strip() for l in raw.split('\n') if '|' in l]
 
-            User's Query: {search_query}
-            Section Text: {section['full_text'][:250]}  # Limit text length for token efficiency
+        suggestions = []
+        for line in lines:
+            parts = [p.strip() for p in line.split('|')]
+            if len(parts) >= 2:
+                act_s, sec_s = parts[0], parts[1]
+                why = parts[2] if len(parts) >= 3 else "Relevant legal provision"
+                suggestions.append((act_s, sec_s, why))
 
-            Provide a clear, concise explanation of the relevance.
-            """
-            
-            try:
-                relevance_explanation = generate_with_gemini(prompt)
-                relevance_explanation = relevance_explanation.strip()
-                if relevance_explanation.startswith('"') and relevance_explanation.endswith('"'):
-                    relevance_explanation = relevance_explanation[1:-1]
-            except Exception as e:
-                # Fallback explanation if AI generation fails
-                relevance_explanation = f"This section contains provisions related to {query.split()[0]}"
-            
+        results: List[Dict] = []
+        for act_s, sec_s, why in suggestions:
             results.append({
-                'act': section['act'],
-                'section_number': section['section_number'],
-                'full_text': section['full_text'],
-                'summary': relevance_explanation,
-                'score': float(D[0][i])  # Convert to float for JSON serialization
+                'act': act_s,
+                'section_number': sec_s,
+                'summary': why
             })
+            if len(results) >= 3:
+                break
                 
         return results
-            
     except Exception as e:
+        print(f"Gemini section retrieval error: {e}")
         return []
 
 
 def fetch_kanoon_results(query: str, conversation_history: str = "") -> List[Dict]:
-    """Fetch case law results from Indian Kanoon using general legal search"""
-    search_query = query
-    
-    # If we have conversation history, use it to enhance the query
-    if conversation_history:
-        enhanced_query = extract_keywords_from_conversation(conversation_history, query)
-        if enhanced_query and len(enhanced_query) > len(query)/2:
-            search_query = enhanced_query
-    
-    # If query is very short, enhance it with general legal terms
-    if len(search_query.split()) < 3:
-        search_query += " legal rights precedent case law"
-    
-    print(f"Case search query: {search_query}")
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    driver = None
+    """Fetch case law results from Indian Kanoon using a Gemini-generated search phrase and filter for relevance. Retry on timeout."""
+    import requests
+    from bs4 import BeautifulSoup
+    import time
+    # Improve Gemini prompt for more relevant case law search
+    context = f"Query: {query}\nHistory: {conversation_history}" if conversation_history else query
+    prompt = (
+        "You are a legal assistant for Indian law. Given the user's question and context, generate a search phrase that will find the most relevant and diverse Indian case law on Indian Kanoon. Focus on legal principles, parties, and jurisdiction. Only output the search phrase, no extra text.\n\n"
+        f"{context}"
+    )
     try:
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        driver.get("https://indiankanoon.org/")
-        search_box = driver.find_element(By.ID, "search-box")
-        search_box.send_keys(search_query + Keys.RETURN)
-        time.sleep(3)
-        
-        case_results = []
-        case_elements = driver.find_elements(By.CSS_SELECTOR, "div.result_title > a")
-        
-        for i, element in enumerate(case_elements[:5]):  # Get top 5 results
-            title = element.text.strip()
-            url = element.get_attribute("href")
-            
-            # Try to get a snippet of the case content
-            snippet = ""
-            try:
-                snippet_element = element.find_element(By.XPATH, "../../div[@class='snippet']")
-                snippet = snippet_element.text.strip()
-            except:
-                # If snippet not available, just use the title
-                snippet = title
-                
-            case_results.append({
-                "title": title[:80],  # Truncate long titles
-                "url": url,
-                "snippet": snippet[:250] if snippet else ""  # Add a longer snippet
-            })
-            
-        # If we didn't get any results, try a more general search
-        if not case_results:
-            print("No results found, trying a more general search...")
-            driver.get("https://indiankanoon.org/")
-            search_box = driver.find_element(By.ID, "search-box")
-            
-            # Use general legal terms for fallback search
-            fallback_query = "legal rights precedent Supreme Court"
-            search_box.send_keys(fallback_query + Keys.RETURN)
-            time.sleep(3)
-            
-            case_elements = driver.find_elements(By.CSS_SELECTOR, "div.result_title > a")
-            
-            for i, element in enumerate(case_elements[:5]):  # Get top 5 results
-                title = element.text.strip()
-                url = element.get_attribute("href")
-                
-                # Try to get a snippet of the case content
+        search_phrase = generate_with_gemini(prompt)
+        print(f"Gemini search phrase: {search_phrase}")
+        # Fallback to original query if Gemini output is too generic or short
+        if not search_phrase or len(search_phrase.strip()) < 5:
+            search_phrase = query
+    except Exception as e:
+        print(f"Gemini search phrase error: {e}")
+        search_phrase = query
+    url = f"https://indiankanoon.org/search/?formInput={requests.utils.quote(search_phrase)}"
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            resp = requests.get(url, timeout=20)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            case_elements = soup.select("div.result_title > a")
+            case_results = []
+            seen_titles = set()
+            seen_urls = set()
+            for element in case_elements:
+                title = element.get_text(strip=True)
+                case_url = element.get("href")
+                if case_url and not case_url.startswith("http"):
+                    case_url = f"https://indiankanoon.org{case_url}"
                 snippet = ""
-                try:
-                    snippet_element = element.find_element(By.XPATH, "../../div[@class='snippet']")
-                    snippet = snippet_element.text.strip()
-                except:
-                    # If snippet not available, just use the title
+                snippet_element = element.find_parent("div", class_="result_title").find_next_sibling("div", class_="snippet")
+                if snippet_element:
+                    snippet = snippet_element.get_text(strip=True)
+                else:
                     snippet = title
-                    
+                # Filter out duplicate cases by title and URL
+                title_key = title.lower().replace("...", "").strip()
+                if title_key in seen_titles or (case_url and case_url in seen_urls):
+                    continue
                 case_results.append({
-                    "title": title[:80],  # Truncate long titles
-                    "url": url,
+                    "title": title[:80],
+                    "url": case_url,
                     "snippet": snippet[:250] if snippet else ""
                 })
-            
-        return case_results
-        
-    except Exception as e:
-        print(f"Kanoon error: {e}")
-        return []
-    finally:
-        if driver: driver.quit()
+                seen_titles.add(title_key)
+                if case_url:
+                    seen_urls.add(case_url)
+                if len(case_results) == 3:
+                    break
+            if case_results:
+                return case_results
+            else:
+                if attempt < max_retries:
+                    time.sleep(2)
+                else:
+                    return [{
+                        "title": "Indian Kanoon is currently unavailable",
+                        "url": "https://indiankanoon.org/",
+                        "snippet": "Sorry, we could not retrieve case law results at this time. Please try again later."
+                    }]
+        except requests.exceptions.Timeout:
+            print(f"Kanoon timeout on attempt {attempt+1}")
+            if attempt < max_retries:
+                time.sleep(2)
+            else:
+                return [{
+                    "title": "Indian Kanoon is currently unavailable",
+                    "url": "https://indiankanoon.org/",
+                    "snippet": "Sorry, we could not retrieve case law results due to a timeout. Please try again later."
+                }]
+        except Exception as e:
+            print(f"Kanoon error: {e}")
+            return [{
+                "title": "Indian Kanoon is currently unavailable",
+                "url": "https://indiankanoon.org/",
+                "snippet": "Sorry, we could not retrieve case law results due to a technical error. Please try again later."
+            }]
 
 def fetch_specific_case_from_kanoon(case_name: str) -> Dict:
     """Search for a specific case name on Indian Kanoon and return the most relevant result"""
     print(f"Searching for specific case: {case_name}")
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    driver = None
+    import requests
+    from bs4 import BeautifulSoup
+    print(f"Searching for specific case: {case_name}")
     try:
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        driver.get("https://indiankanoon.org/")
-        
-        # Search with the exact case name for better precision
-        search_box = driver.find_element(By.ID, "search-box")
-        # Use quotes to search for exact phrase
         search_query = f'"{case_name}"'
-        search_box.send_keys(search_query + Keys.RETURN)
-        time.sleep(3);
-        
-        # Try to get the first (most relevant) result
-        case_elements = driver.find_elements(By.CSS_SELECTOR, "div.result_title > a")
-        
+        url = f"https://indiankanoon.org/search/?formInput={requests.utils.quote(search_query)}"
+        resp = requests.get(url, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        case_elements = soup.select("div.result_title > a")
         if case_elements:
-            # Get the first result
             element = case_elements[0]
-            title = element.text.strip()
-            url = element.get_attribute("href")
-            
-            # Try to get a snippet of the case content
+            title = element.get_text(strip=True)
+            url = element.get("href")
+            if url and not url.startswith("http"):
+                url = f"https://indiankanoon.org{url}"
             snippet = ""
-            try:
-                snippet_element = element.find_element(By.XPATH, "../../div[@class='snippet']")
-                snippet = snippet_element.text.strip()
-            except:
-                # If snippet not available, just use the title
+            snippet_element = element.find_parent("div", class_="result_title").find_next_sibling("div", class_="snippet")
+            if snippet_element:
+                snippet = snippet_element.get_text(strip=True)
+            else:
                 snippet = title
-                
             return {
-                "title": title[:80],  # Truncate long titles
+                "title": title[:80],
                 "url": url,
-                "snippet": snippet[:250] if snippet else "",  # Add a longer snippet
-                "case_name": case_name  # Keep track of the original case name
+                "snippet": snippet[:250] if snippet else "",
+                "case_name": case_name
             }
         else:
             # Try without quotes if no results found
-            driver.get("https://indiankanoon.org/")
-            search_box = driver.find_element(By.ID, "search-box")
-            search_box.send_keys(case_name + Keys.RETURN)
-            time.sleep(3)
-            
-            case_elements = driver.find_elements(By.CSS_SELECTOR, "div.result_title > a")
-            
+            url = f"https://indiankanoon.org/search/?formInput={requests.utils.quote(case_name)}"
+            resp = requests.get(url, timeout=10)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            case_elements = soup.select("div.result_title > a")
             if case_elements:
                 element = case_elements[0]
-                title = element.text.strip()
-                url = element.get_attribute("href")
-                
-                # Try to get a snippet
+                title = element.get_text(strip=True)
+                url = element.get("href")
+                if url and not url.startswith("http"):
+                    url = f"https://indiankanoon.org{url}"
                 snippet = ""
-                try:
-                    snippet_element = element.find_element(By.XPATH, "../../div[@class='snippet']")
-                    snippet = snippet_element.text.strip()
-                except:
+                snippet_element = element.find_parent("div", class_="result_title").find_next_sibling("div", class_="snippet")
+                if snippet_element:
+                    snippet = snippet_element.get_text(strip=True)
+                else:
                     snippet = title
-                    
                 return {
                     "title": title[:80],
                     "url": url,
                     "snippet": snippet[:250] if snippet else "",
                     "case_name": case_name
                 }
-                
-        # If we still didn't find anything, return a placeholder
         return {
             "title": f"Case: {case_name}",
             "url": f"https://indiankanoon.org/search/?formInput={case_name.replace(' ', '+')}",
             "snippet": f"This case was mentioned in the legal analysis but couldn't be found directly on Indian Kanoon.",
             "case_name": case_name
         }
-        
     except Exception as e:
         print(f"Error searching for specific case: {e}")
-        # Return a placeholder if there's an error
         return {
             "title": f"Case: {case_name}",
             "url": f"https://indiankanoon.org/search/?formInput={case_name.replace(' ', '+')}",
             "snippet": "Could not retrieve case details due to technical issues.",
             "case_name": case_name
         }
-    finally:
-        if driver: driver.quit()
 
 def extract_case_names_from_text(text: str) -> List[str]:
     """Extract case names from text generated by the API"""
@@ -430,37 +362,11 @@ def extract_case_names_from_text(text: str) -> List[str]:
     return unique_cases[:3]
 
 def fetch_cases_from_api_suggestions(api_response: str) -> List[Dict]:
-    """Extract case names from API response and fetch them from Indian Kanoon"""
-    # Get case names from the text
-    case_names = extract_case_names_from_text(api_response)
-    print(f"Extracted case names: {case_names}")
-    
-    if not case_names:
-        # If no cases found, fall back to regular keyword search
-        print("No specific cases found in API response, using standard search")
-        return fetch_kanoon_results(api_response)
-    
-    # Fetch each case specifically
-    results = []
-    for case_name in case_names:
-        case_result = fetch_specific_case_from_kanoon(case_name)
-        if case_result:
-            results.append(case_result)
-            
-    # If we couldn't find enough cases, supplement with regular search
-    if len(results) < 2:
-        # Extract keywords from the API response
-        keywords = extract_keywords_from_conversation("", api_response)
-        additional_results = fetch_kanoon_results(keywords)
-        
-        # Add only the results we don't already have
-        existing_urls = [r.get('url', '') for r in results]
-        for result in additional_results:
-            if result.get('url') not in existing_urls:
-                results.append(result)
-                if len(results) >= 3:  # Limit to 3 total results
-                    break
-    
+    """Instead of searching for specific case names, use extracted keywords to fetch top 3 cases from Indian Kanoon."""
+    # Extract keywords from the API response
+    keywords = extract_keywords_from_conversation("", api_response)
+    # Fetch top 3 cases using keyword search
+    results = fetch_kanoon_results(keywords)
     return results[:3]  # Return up to 3 results
 
 def generate_with_gemini(prompt: str) -> str:
@@ -690,7 +596,7 @@ def analyze_query_context(query: str, conversation_history: str = "") -> Dict:
             context_sufficient = True
         elif is_follow_up:
             context_sufficient = True
-        elif len(query.split()) > 25:
+        elif len(query) > 25:
             context_sufficient = True
         elif "when:" in query_lower and "where:" in query_lower:
             context_sufficient = True
@@ -761,23 +667,44 @@ def format_response(base_answer: str, references: List[Dict], cases: List[Dict],
     for rec in recommendations:
         response += f"• {rec}\n"
     
-    # Include case law if available
+    # Include case law if available, but filter out fallback/technical cases and duplicates
     if cases:
-        response += "\n\n🔗 **Related Case Law:**\n\n"
-        for case in cases[:3]:
-            case_title = case.get('title', 'Case title not available')
-            case_url = case.get('url', '')
-            if case_url:
-                response += f"• [{case_title[:80]}]({case_url})"
-                if case.get('snippet') and not case['snippet'].startswith(case_title):
-                    snippet = case['snippet']
-                    if len(snippet) > 100:
-                        snippet = snippet[:100] + "..."
-                    response += f"\n  {snippet}"
-                response += "\n"
-            else:
-                response += f"• {case_title[:80]}\n"
-    
+        filtered_cases = []
+        seen_urls = set()
+        for case in cases:
+            snippet = case.get('snippet', '').lower()
+            url = case.get('url', '')
+            if ("couldn't be found directly on indian kanoon" in snippet or
+                "could not retrieve case details due to technical issues" in snippet or
+                "this case was mentioned in the legal analysis" in snippet):
+                continue  # skip fallback/technical cases
+            if url and url in seen_urls:
+                continue  # skip duplicate cases by URL
+            filtered_cases.append(case)
+            if url:
+                seen_urls.add(url)
+        if filtered_cases:
+            response += "\n\n🔗 **Related Case Law:**\n\n"
+            for case in filtered_cases[:3]:
+                case_title = case.get('title', 'Case title not available')
+                case_url = case.get('url', '')
+                if case_url:
+                    # Clean up the case title to show only the case name (remove extra parties, dates, etc.)
+                    # Try to extract a pattern like 'X vs Y (Year)' or 'X vs Y'
+                    import re
+                    clean_title = case_title
+                    match = re.search(r'([A-Za-z][A-Za-z\s.&]+\s+vs\.?\s+[A-Za-z][A-Za-z\s.&]+)(?:\s*\(\d{4}\))?', case_title)
+                    if match:
+                        clean_title = match.group(0).strip()
+                    response += f"• [{clean_title}]({case_url})"
+                    if case.get('snippet') and not case['snippet'].startswith(case_title):
+                        snippet = case['snippet']
+                        if len(snippet) > 100:
+                            snippet = snippet[:100] + "..."
+                        response += f"\n  {snippet}"
+                    response += "\n"
+                else:
+                    response += f"• {case_title[:80]}\n"
     return response.strip()
 
 def generate_case_law_response(query: str, conversation_history: str = "") -> str:
@@ -830,180 +757,61 @@ def generate_case_law_response(query: str, conversation_history: str = "") -> st
         return default_response
 
 def search_relevant_sections(query: str, query_type: str, conversation_history: str = "") -> List[Dict]:
-    """Search for sections relevant to the query using semantic search with conversation context"""
+    """Wrapper to use Gemini-based retrieval for sections."""
     try:
-        print(f"Searching for relevant sections for query: {query}")
-        
-        # Extract key terms from the query
-        query_lower = query.lower()
-        
-        # Create a more focused search query
-        search_terms = []
-        
-        # Add legal-specific terms if found in the query
-        legal_terms = ['law', 'legal', 'right', 'duty', 'obligation', 'liability', 'contract', 
-                      'agreement', 'court', 'judge', 'judgment', 'case', 'precedent', 'statute',
-                      'act', 'section', 'clause', 'provision', 'regulation', 'rule']
-        
-        for term in legal_terms:
-            if term in query_lower:
-                search_terms.append(term)
-        
-        # Create a combined search query that includes conversation history
-        enhanced_query = query
-        if search_terms:
-            enhanced_query = query + " " + " ".join(search_terms)
-        
-        # If we have conversation history, use it to enhance the search
-        if conversation_history:
-            # Extract the most recent exchange from conversation history
-            history_lines = conversation_history.split('\n')
-            recent_exchanges = []
-            for line in history_lines:
-                if line.startswith('User:') or line.startswith('Assistant:'):
-                    recent_exchanges.append(line)
-            
-            # Get the last user query and assistant response
-            last_exchange = []
-            for line in reversed(recent_exchanges):
-                if line.startswith('User:'):
-                    last_exchange.insert(0, line.replace('User:', '').strip())
-                elif line.startswith('Assistant:'):
-                    last_exchange.insert(0, line.replace('Assistant:', '').strip())
-                if len(last_exchange) >= 2:
-                    break
-            
-            # Combine the last exchange with current query for better context
-            if last_exchange:
-                context_query = " ".join(last_exchange) + " " + enhanced_query
-                print(f"Enhanced search query with context: {context_query}")
-                
-                # Use the context-enhanced query for embedding
-                query_embedding = model.encode([context_query])
-            else:
-                query_embedding = model.encode([enhanced_query])
-        else:
-            query_embedding = model.encode([enhanced_query])
-            
-        print(f"Final search query: {enhanced_query}")
-        
-        # Use FAISS index for initial search
-        D, I = index.search(query_embedding, 10)  # Get more candidates for filtering
-        
-        # Collect initial results
-        candidates = []
-        for i, idx in enumerate(I[0]):
-            candidates.append({
-                'act': section_data[idx]['act'],
-                'section_number': section_data[idx]['section_number'],
-                'full_text': section_data[idx]['full_text'],
-                'score': D[0][i]
-            })
-        
-        # Get the top results
-        top_results = candidates[:5]
-        
-        # Generate summaries for each section
-        results = []
-        for section in top_results:
-            try:
-                # Check if we have a meaningful summary in the section data
-                if 'summary' in section and section['summary']:
-                    summary = section['summary']
-                else:
-                    # Generate a new summary
-                    analysis = generate_legal_analysis(section['full_text'], section['act'], section['section_number'])
-                    summary = analysis['summary']
-                
-                # Add the section with its summary
-                results.append({
-                    'act': section['act'],
-                    'section_number': section['section_number'],
-                    'full_text': section['full_text'],
-                    'summary': summary
-                })
-            except Exception as e:
-                print(f"Error processing section: {e}")
-                # Add a default summary
-                results.append({
-                    'act': section['act'],
-                    'section_number': section['section_number'],
-                    'full_text': section['full_text'],
-                    'summary': f"Contains relevant legal provisions from {section['act']}"
-                })
-        
-        return results[:3]  # Return top 3 results
-        
+        return find_relevant_sections(query, conversation_history)
     except Exception as e:
         print(f"Error in section search: {e}")
         return []  # Return empty list on error
 
 def analyze_legal_impact(query: str, conversation_history: str = "", context: str = "") -> str:
-    """Analyze the potential impact of a legal issue using Together AI"""
+    """Analyze the potential impact in a compact, token-efficient format."""
     try:
-        # Create a more structured and concise prompt for impact analysis
+        # Token-lean, compact prompt (strict headings, minimal bullets)
         impact_prompt = f"""
-        As a legal expert, provide a CONCISE and STRUCTURED impact analysis for this legal situation:
+        You are a senior Indian legal expert. Provide a COMPACT impact note.
 
-        User's Situation: {query}
-        Previous Context: {conversation_history if conversation_history else "No previous context"}
-        Additional Context: {context if context else "No additional context provided"}
+        Situation: {query}
+        Context: {conversation_history if conversation_history else "-"}
+        Extra: {context if context else "-"}
 
-        Provide a BRIEF impact analysis in this EXACT format:
+        Output exactly these sections with at most the specified bullets:
+        Summary: [max 2 line]
+        Risk: [Low/Medium/High] - [<=8 words why]
+        Immediate: - [max 2 bullets]
+        Financial: - [max 2 bullets]
+        Legal: - [max 2 bullets]
+        Next: 
+        1) [step] 
+        2) [step] 
+        3) [step]
 
-        **Immediate Impact:**
-        • [2-3 bullet points of immediate consequences]
 
-        **Financial Impact:**
-        • [2-3 bullet points of financial implications]
-
-        **Legal Impact:**
-        • [2-3 bullet points of legal consequences]
-
-        **Long-term Consequences:**
-        • [2-3 bullet points of lasting effects]
-
-        **Risk Level:** [Low/Medium/High]
-
-        **Key Mitigation Steps:**
-        • [3-4 actionable steps to minimize impact]
-
-        Keep each section brief and focused. Use bullet points for clarity. Be specific but concise.
+        Do NOT add extra blank lines between sections.  
+        Only bullets ( - ) for items, not for section headers.  
+        Each point must be concise, clear, and on a new line.  
+        Do not add any other text or formatting.  
+        Do not add any other text or formatting.  
         """
 
-        # Generate impact analysis using Together AI
-        impact_analysis = generate_with_gemini(impact_prompt)
+        # Generate impact analysis using Gemini (short output)
+        impact_analysis = gemini_generate(impact_prompt, max_tokens=220, temperature=0.2)
         
         if not impact_analysis or len(impact_analysis.strip()) < 50:
             # Fallback response if AI generation fails
             return """
-**Immediate Impact:**
-• Loss of property and disruption of daily activities
-• Need to report to police and insurance immediately
-• Emotional stress and time investment in recovery process
-
-**Financial Impact:**
-• Insurance deductible and potential premium increases
-• Replacement costs for stolen items and vehicle
-• Legal fees if case becomes complex
-
-**Legal Impact:**
-• Right to file police report and seek legal action
-• Obligation to cooperate with investigation
-• Potential involvement in legal proceedings
-
-**Long-term Consequences:**
-• Impact on insurance history and future premiums
-• Potential effect on credit if vehicle was financed
-• Changes to security measures and insurance coverage
-
-**Risk Level:** Medium
-
-**Key Mitigation Steps:**
-• Report theft immediately to police and insurance
-• Document all losses and keep detailed records
-• Consider legal consultation for complex cases
-• Review and update security measures
+Summary: Immediate reporting and documentation likely required.
+Risk: Medium - deadlines/documentation
+Immediate:
+- Report via official channel
+- Preserve evidence/documents
+Financial:
+- Possible fees/penalties
+- Advisory/processing costs
+Legal:
+- Compliance and notices
+- Potential proceedings
+Next: 1) File report 2) Organize proofs 3) Track refs & deadlines
 """
         
         return impact_analysis.strip()
@@ -1011,33 +819,18 @@ def analyze_legal_impact(query: str, conversation_history: str = "", context: st
     except Exception as e:
         print(f"Error in impact analysis: {e}")
         return """
-**Immediate Impact:**
-• Immediate loss and disruption to daily routine
-• Required reporting and documentation process
-• Emotional and practical challenges
-
-**Financial Impact:**
-• Direct financial losses and replacement costs
-• Insurance implications and potential premium changes
-• Additional expenses for legal or recovery services
-
-**Legal Impact:**
-• Legal rights to pursue recovery and justice
-• Obligations to cooperate with authorities
-• Potential legal proceedings and requirements
-
-**Long-term Consequences:**
-• Lasting effects on insurance and financial standing
-• Changes to security practices and risk management
-• Potential impact on future legal matters
-
-**Risk Level:** Medium to High
-
-**Key Mitigation Steps:**
-• Take immediate action to report and document
-• Seek professional legal and insurance guidance
-• Maintain comprehensive records of all actions
-• Implement preventive measures for the future
+Summary: Prompt report + solid documentation advised.
+Risk: Medium-High - time/accuracy critical
+Immediate:
+- File official notice/report
+- Secure evidence & references
+Financial:
+- Direct/penalty costs possible
+- Advisory fees likely if escalated
+Legal:
+- Compliance and responses expected
+- Risk from missed timelines
+Next: 1) File 2) Organize proofs 3) Track refs/deadlines
 """
 
 def detect_impact_query(query: str) -> bool:
@@ -1237,8 +1030,7 @@ These details will help me provide you with more accurate guidance tailored to y
                                     references.append({
                                         'act': section['act'],
                                         'section_number': section['section_number'],
-                                        'summary': summary,
-                                        'full_text': section['full_text'][:250] + '...'
+                                        'summary': summary
                                     })
                                 except Exception as section_error:
                                     print(f"Error processing section: {section_error}")
@@ -1285,18 +1077,11 @@ These details will help me provide you with more accurate guidance tailored to y
 
 {impact_analysis}
 
-**Next Steps:**
-1. Consult with a qualified lawyer for personalized advice
-2. Document all relevant information and evidence
-3. Follow legal guidance promptly to minimize negative impact
-4. Keep records of all communications and actions taken
-
-*This analysis is for informational purposes only and should not replace professional legal counsel.*
 """
                     
                     # Update conversation history
                     conv_state.update(request.session_id, query, formatted_answer.strip(), [], [])
-                    
+            
                     return ResponseModel(
                         answer=formatted_answer.strip(),
                         references=[],
@@ -1349,7 +1134,7 @@ For immediate guidance, please consult with a legal professional who can provide
             
             # Update conversation history
             conv_state.update(request.session_id, query, formatted_answer.strip(), references, cases)
-        
+            
             return ResponseModel(
                 answer=formatted_answer.strip(),
                 references=references,

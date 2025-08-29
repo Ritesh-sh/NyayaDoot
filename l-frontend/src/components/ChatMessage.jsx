@@ -64,6 +64,9 @@ export default function ChatMessage({ answer, type }) {
       <ReactMarkdown
         components={{
           p: ({ node, ...props }) => <span {...props} />,
+          a: ({ node, ...props }) => (
+            <a {...props} target="_blank" rel="noopener noreferrer" />
+          ),
           code: ({ node, inline, className, ...props }) =>
             inline ? (
               <code
@@ -91,11 +94,12 @@ export default function ChatMessage({ answer, type }) {
               >
                 <code {...props} />
               </pre>
-            )
+            ),
         }}
       >
         {answer}
       </ReactMarkdown>
+
     </Paper>
   );
 }
