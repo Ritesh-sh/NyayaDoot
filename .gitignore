@@ -52,7 +52,8 @@ legal-frontend/.env
 legal-frontend/build/
 legal-frontend/package-lock.json
 legal-frontend/.DS_Store
-
+ecosystem.config.js
+memory-monitor.bat
 # ======================
 # IDE/editor-specific ignores
 # ======================
