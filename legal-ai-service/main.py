@@ -470,8 +470,8 @@ def generate_with_gemini(prompt: str) -> str:
             prompt_lines = prompt.split('\n')
             if len(prompt_lines) > 20:
                 prompt = '\n'.join(prompt_lines[:10] + ['\n...[content trimmed]...\n'] + prompt_lines[-10:])
-        if len(prompt) > 6000:
-            prompt = prompt[:1500] + "\n...[content trimmed]...\n" + prompt[-1500:]
+            elif len(prompt) > 6000:
+                prompt = prompt[:1500] + "\n...[content trimmed]...\n" + prompt[-1500:]
         print(f"Prompt length: {len(prompt)} characters")
         return gemini_generate(prompt)
     except Exception as e:
@@ -525,6 +525,62 @@ def generate_direct_answer(query: str, context: str = "", conversation_history: 
     """
     answer = generate_with_gemini(prompt)
     return answer if answer else "Immediate steps:\n1. Consult with a qualified lawyer\n2. Document all relevant information\n3. Keep records of all communications"
+
+def generate_legal_analysis(text: str, act_name: str, section_number: str) -> Dict:
+    """Generate a concise and relevant summary of a legal section"""
+    # Create a descriptive analysis based on the section text and act name
+    act_name_clean = act_name.replace('.pdf', '').replace('-', ' ').title()
+    text_lower = text.lower()
+    
+    # Extract key phrases from the text for a more specific description
+    keyword_indicators = ["shall", "may", "means", "includes", "provided that", "deemed to be", "notwithstanding"]
+    key_phrases = []
+    
+    # Look for the most relevant phrase
+    for indicator in keyword_indicators:
+        if indicator in text_lower:
+            # Get the text around the indicator
+            parts = text_lower.split(indicator)
+            if len(parts) > 1:
+                phrase = parts[1].split(".")[0]
+                if len(phrase) < 50:  # Only use shorter phrases for conciseness
+                    key_phrases.append((indicator, phrase))
+    
+    if key_phrases:
+        # Use the most relevant phrase
+        indicator, key_phrase = key_phrases[0]
+        key_phrase = key_phrase[:50]  # Limit to 50 chars for brevity
+        
+        # Create a focused summary
+        if "shall" in indicator:
+            summary = f"Mandates that {key_phrase.strip()}"
+        elif "may" in indicator:
+            summary = f"Allows for {key_phrase.strip()}"
+        elif "means" in indicator or "includes" in indicator:
+            summary = f"Defines {key_phrase.strip()}"
+        elif "provided that" in indicator:
+            summary = f"Subject to condition that {key_phrase.strip()}"
+        else:
+            summary = f"States that {indicator} {key_phrase.strip()}"
+            
+        return {'summary': summary}
+    else:
+        # If no good key phrases found, create a brief general summary
+        # Look for important terms in the text
+        important_terms = ['right', 'duty', 'obligation', 'liability', 'penalty', 'punishment', 
+                         'compensation', 'damages', 'relief', 'remedy', 'jurisdiction']
+        
+        found_terms = [term for term in important_terms if term in text_lower]
+        
+        if found_terms:
+            # Use the first found term to create a brief summary
+            term = found_terms[0]
+            summary = f"Addresses {term} under {act_name_clean}"
+        else:
+            # Fallback to a very brief general summary
+            summary = f"Contains legal provisions from {act_name_clean}"
+            
+        return {'summary': summary}
 
 def parse_legal_response(text: str) -> Dict:
     sections = {
@@ -1335,4 +1391,4 @@ async def reset_session(session_id: str = Query(...)):
 app.include_router(router)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

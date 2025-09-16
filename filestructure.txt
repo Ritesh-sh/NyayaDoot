@@ -1,6 +1,5 @@
 |-- .gitattributes
 |-- .gitignore
-|-- ecosystem.config.js
 |-- l-frontend
     |-- .gitignore
     |-- eslint.config.js
@@ -37,8 +36,24 @@
 |-- legal-ai-service
     |-- .env
     |-- .gitignore
-    |-- legal-ai-service
     |-- main.py
+    |-- models
+        |-- legal_embedding_model
+            |-- 1_Pooling
+                |-- config.json
+            |-- 2_Normalize
+            |-- config.json
+            |-- config_sentence_transformers.json
+            |-- model.safetensors
+            |-- modules.json
+            |-- README.md
+            |-- sentence_bert_config.json
+            |-- special_tokens_map.json
+            |-- tokenizer.json
+            |-- tokenizer_config.json
+            |-- vocab.txt
+        |-- legal_index.faiss
+        |-- legal_sections.pkl
     |-- README_ENV_SETUP.md
     |-- requirement1.txt
     |-- requirements.txt
