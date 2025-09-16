@@ -44,8 +44,8 @@ export default function Chat() {
     palette: {
       mode: 'dark',
       background: {
-        default: '#1A1A1A',
-        paper: '#242424'
+        default: '#0F172A',
+        paper: '#1E293B'
       },
       primary: {
         main: '#7C3AED',
@@ -215,7 +215,7 @@ export default function Chat() {
           </Button>
         </DialogActions>
       </Dialog>
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#1A1A1A' }}>
+      <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#121212' }}>
         <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
           <Box sx={{ width: 300, p: 2, bgcolor: '#1E293B', height: '100%' }}>
             <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ color: '#d4af37' }}>
@@ -279,10 +279,6 @@ export default function Chat() {
               flex: 1,
               p: 2,
               overflowY: 'auto',
-              /* hide scrollbar but allow scroll */
-              scrollbarWidth: 'none', /* Firefox */
-              msOverflowStyle: 'none', /* IE 10+ */
-              '&::-webkit-scrollbar': { width: 0, height: 0 }, /* WebKit */
               bgcolor: '#1E293B',
               borderRadius: 3,
               boxShadow: 3,
