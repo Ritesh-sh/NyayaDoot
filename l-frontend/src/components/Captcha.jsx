@@ -16,7 +16,7 @@ export default function Captcha() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (parseInt(userAnswer, 10) === a + b) {
-      navigate('/Nyayadoot/chat');
+      navigate('/nyayadoot/chat');
     } else {
       setError('Incorrect answer. Please try again.');
     }

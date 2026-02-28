@@ -1,21 +1,64 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
   Button, TextField, Container, Box, Typography, Link, IconButton,
   Drawer, List, ListItem, ListItemText, Divider, AppBar, Toolbar,
-  CssBaseline, createTheme, ThemeProvider, Chip, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions
+  CssBaseline, createTheme, ThemeProvider, Dialog, DialogTitle,
+  DialogContent, DialogActions, Fade
 } from '@mui/material';
-import { Menu as MenuIcon, Logout } from '@mui/icons-material';
+import { Menu as MenuIcon, Logout, Send as SendIcon, Add as AddIcon } from '@mui/icons-material';
 import ChatMessage from './ChatMessage';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function generateSessionId() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+}
+
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
+    background: { default: '#0F172A', paper: '#1E293B' },
+    primary: { main: '#7C3AED', contrastText: '#ffffff' },
+    secondary: { main: '#64748B' },
+    text: { primary: '#F8FAFC', secondary: '#94A3B8' },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: { borderRadius: 12, textTransform: 'none', fontWeight: 600 },
+      },
+    },
+  },
+});
+
+/* ── Typing dots animation ────────────────────────────────────────────── */
+function TypingIndicator() {
   return (
-    Date.now().toString(36) +
-    Math.random().toString(36).substring(2, 10)
+    <Box sx={{ display: 'flex', gap: 0.6, alignItems: 'center', p: 1.5, pl: 2 }}>
+      {[0, 1, 2].map((i) => (
+        <Box
+          key={i}
+          sx={{
+            width: 8, height: 8, borderRadius: '50%', bgcolor: '#d4af37',
+            animation: 'bounce 1.4s infinite ease-in-out',
+            animationDelay: `${i * 0.16}s`,
+            '@keyframes bounce': {
+              '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
+              '40%': { transform: 'scale(1)', opacity: 1 },
+            },
+          }}
+        />
+      ))}
+      <Typography variant="caption" sx={{ color: '#94A3B8', ml: 1, fontSize: '0.8rem' }}>
+        NyayaDoot is thinking…
+      </Typography>
+    </Box>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════ */
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
@@ -23,426 +66,280 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // Use only generateSessionId for session ID
   const [currentSessionId, setCurrentSessionId] = useState(() => generateSessionId());
   const [showPopup, setShowPopup] = useState(false);
-  // Remove consecutiveUserCount, add userMessageCount
   const [userMessageCount, setUserMessageCount] = useState(0);
-  // Make threshold easy to change
   const POPUP_THRESHOLD = 5;
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   const suggestionPrompts = [
     "How can I register a private limited company in India?",
-    "How can I protect my business with contracts?",
-    "What are the tax implications for small businesses in India?",
-    "What are the legal requirements for starting a business?"
+    "What are my rights if I get arrested?",
+    "How do I file a consumer complaint?",
+    "What are the legal steps for divorce in India?",
   ];
 
-  const theme = createTheme({
-    palette: {
-      mode: 'dark',
-      background: {
-        default: '#0F172A',
-        paper: '#1E293B'
-      },
-      primary: {
-        main: '#7C3AED',
-        contrastText: '#ffffff'
-      },
-      secondary: {
-        main: '#64748B'
-      },
-      text: {
-        primary: '#F8FAFC',
-        secondary: '#94A3B8'
-      }
-    },
-    components: {
-      MuiButton: {
-        styleOverrides: {
-          root: {
-            borderRadius: 12,
-            textTransform: 'none',
-            fontWeight: 600,
-          }
-        }
-      },
-      MuiTextField: {
-        styleOverrides: {
-          root: {
-            borderRadius: 8,
-            input: {
-              color: '#F8FAFC',
-              backgroundColor: '#1E293B'
-            }
-          }
-        }
-      },
-      MuiChip: {
-        styleOverrides: {
-          root: {
-            transition: 'all 0.3s ease',
-            borderRadius: 16,
-            padding: '8px 12px',
-            fontSize: '0.9rem',
-            whiteSpace: 'normal',
-            wordBreak: 'break-word',
-            height: 'auto',
-            minHeight: '32px',
-            lineHeight: '1.4',
-            '&:hover': {
-              transform: 'translateY(-2px)',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-            }
-          }
-        }
-      }
-    }
-  });
+  const followUpChips = [
+    "Show me relevant sections",
+    "What are the related cases?",
+    "What will happen if I don't act?",
+    "Explain more",
+  ];
 
-  // Remove all axios calls to /api/chats
-  // On mount, load chat history from sessionStorage
+  // Load history from sessionStorage once
   useEffect(() => {
-    const storedHistory = sessionStorage.getItem('chatHistory');
-    if (storedHistory) {
-      setHistory(JSON.parse(storedHistory));
-    }
+    const stored = sessionStorage.getItem('chatHistory');
+    if (stored) setHistory(JSON.parse(stored));
   }, []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+  useEffect(scrollToBottom, [messages, loading, scrollToBottom]);
 
-  useEffect(scrollToBottom, [messages]);
-
-  // On every message send, update sessionStorage
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    console.log('Sending message with session_id:', currentSessionId);
-    const newMessages = [...messages, { type: 'user', content: input }];
+  /* ── Send a message (used for both typed input and chip clicks) ────── */
+  const sendMessage = async (text) => {
+    if (!text?.trim()) return;
+    const userMsg = text.trim();
+    const newMessages = [...messages, { type: 'user', content: userMsg }];
     setMessages(newMessages);
+    setInput('');
     setLoading(true);
-    // Count total user messages
-    const newUserMessageCount = userMessageCount + 1;
-    setUserMessageCount(newUserMessageCount);
-    // Show popup on every POPUP_THRESHOLD-th user message
-    if (newUserMessageCount % POPUP_THRESHOLD === 0) {
-      setShowPopup(true);
-    }
+
+    const count = userMessageCount + 1;
+    setUserMessageCount(count);
+    if (count % POPUP_THRESHOLD === 0) setShowPopup(true);
+
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const aiResponse = await axios.post(
+      const { data } = await axios.post(
         `${API_URL}/Nyayadoot/process-query`,
-        { query: input, session_id: currentSessionId }
+        { query: userMsg, session_id: currentSessionId },
+        { timeout: 45000 }
       );
-      const updatedMessages = [
-        ...newMessages,
-        { type: 'bot', content: aiResponse.data.answer }
-      ];
-      setMessages(updatedMessages);
-      // Save to sessionStorage as a new session
+      const updated = [...newMessages, { type: 'bot', content: data.answer }];
+      setMessages(updated);
+
+      // Persist
       const session = {
         session_id: currentSessionId,
-        messages: updatedMessages,
-        last_message_time: new Date().toISOString()
+        messages: updated,
+        preview: newMessages.find((m) => m.type === 'user')?.content?.substring(0, 40) || userMsg.substring(0, 40),
+        last_message_time: new Date().toISOString(),
       };
-      let updatedHistory = history.filter(s => s.session_id !== currentSessionId);
-      updatedHistory = [session, ...updatedHistory];
+      const updatedHistory = [session, ...history.filter((s) => s.session_id !== currentSessionId)];
       setHistory(updatedHistory);
       sessionStorage.setItem('chatHistory', JSON.stringify(updatedHistory));
     } catch (error) {
-      setMessages(prev => [
-        ...prev,
-        { type: 'bot', content: 'Sorry, an error occurred. Please try again.' }
-      ]);
+      const errText =
+        error.code === 'ECONNABORTED'
+          ? 'Request timed out. The server might be busy.'
+          : error.response?.data?.detail || 'Something went wrong. Please try again.';
+      setMessages((prev) => [...prev, { type: 'bot', content: `⚠️ ${errText}`, isError: true }]);
     } finally {
-      setInput('');
       setLoading(false);
+      inputRef.current?.focus();
     }
   };
 
-  // When user starts a new chat, clear messages and update sessionStorage
+  const handleSend = () => sendMessage(input);
+
   const startNewChat = async () => {
-    const newSessionId = generateSessionId();
-    console.log('Generated new session_id:', newSessionId);
+    const newSid = generateSessionId();
     setMessages([]);
-    setCurrentSessionId(newSessionId);
+    setCurrentSessionId(newSid);
     setDrawerOpen(false);
     setUserMessageCount(0);
-    // Call backend to reset session state
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      await axios.post(`${API_URL}/Nyayadoot/reset-session?session_id=${newSessionId}`);
-    } catch (e) {
-      // Ignore errors, just a safety measure
-    }
+    try { await axios.post(`${API_URL}/Nyayadoot/reset-session?session_id=${newSid}`); } catch (_) {}
   };
 
-  const toggleDrawer = (open) => () => {
-    setDrawerOpen(open);
-  };
-
-  // When user clicks a history item, load messages from that session
   const handleHistoryClick = (session) => {
-    setMessages(session.messages);
+    setMessages(session.messages || []);
     setCurrentSessionId(session.session_id);
     setDrawerOpen(false);
   };
 
-  const handleLogout = () => {
-    navigate('/Nyayadoot/');
-  };
-
+  /* ── Render ──────────────────────────────────────────────────────────── */
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      {/* Popup Dialog for every 10th user message */}
+
+      {/* Popup Dialog */}
       <Dialog open={showPopup} onClose={() => setShowPopup(false)}>
         <DialogTitle>For Better Assistance</DialogTitle>
         <DialogContent>
           <Typography>
             For better assistance, please visit{' '}
-            <Link href="http://82.112.226.107/vaadvivaad/" target="_blank" rel="noopener noreferrer">
-              <b>Click Here</b>
-            </Link>.
+            <Link href="http://82.112.226.107/vaadvivaad/" target="_blank" rel="noopener noreferrer"><b>Click Here</b></Link>.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowPopup(false)} color="primary" variant="contained">
-            Later
-          </Button>
+          <Button onClick={() => setShowPopup(false)} color="primary" variant="contained">Later</Button>
         </DialogActions>
       </Dialog>
-      <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#121212' }}>
-        <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
-          <Box sx={{ width: 300, p: 2, bgcolor: '#1E293B', height: '100%' }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ color: '#d4af37' }}>
+
+      <Box sx={{ display: 'flex', height: '100vh', bgcolor: '#0F172A' }}>
+        {/* ── Sidebar Drawer ── */}
+        <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+          <Box sx={{ width: 300, p: 2, bgcolor: '#1E293B', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" fontWeight="bold" sx={{ color: '#d4af37', mb: 1 }}>
               🗂️ Chat History
             </Typography>
-            <Button fullWidth variant="contained" onClick={startNewChat} sx={{ mb: 2, bgcolor: '#d4af37', color: '#0a2463', fontWeight: 700, '&:hover': { bgcolor: '#c4a030' } }}>
+            <Button
+              fullWidth variant="contained" onClick={startNewChat} startIcon={<AddIcon />}
+              sx={{ mb: 2, bgcolor: '#d4af37', color: '#0a2463', fontWeight: 700, '&:hover': { bgcolor: '#c4a030' } }}
+            >
               New Chat
             </Button>
-            <Divider sx={{ mb: 2, bgcolor: '#d4af37' }} />
-            <List>
-              {history.length > 0 ? history.map((session, index) => (
+            <Divider sx={{ mb: 1, bgcolor: '#334155' }} />
+            <List sx={{ flex: 1, overflowY: 'auto' }}>
+              {history.length > 0 ? history.map((session, idx) => (
                 <ListItem
-                  button
-                  key={index}
+                  button key={idx}
                   onClick={() => handleHistoryClick(session)}
                   selected={session.session_id === currentSessionId}
-                  sx={{ borderRadius: 2, mb: 1, bgcolor: session.session_id === currentSessionId ? '#d4af37' : 'inherit', color: session.session_id === currentSessionId ? '#0a2463' : 'inherit', fontWeight: session.session_id === currentSessionId ? 700 : 500 }}
+                  sx={{
+                    borderRadius: 2, mb: 0.5,
+                    bgcolor: session.session_id === currentSessionId ? 'rgba(212,175,55,0.15)' : 'transparent',
+                    '&:hover': { bgcolor: 'rgba(212,175,55,0.08)' },
+                  }}
                 >
                   <ListItemText
-                    primary={session.messages[0]?.message?.substring(0, 25) + "..."}
-                    secondary={session.last_message_time ? new Date(session.last_message_time).toLocaleString() : 'No timestamp'}
+                    primary={session.preview || session.messages?.[0]?.content?.substring(0, 30) || 'Chat'}
+                    secondary={session.last_message_time ? new Date(session.last_message_time).toLocaleString() : ''}
+                    primaryTypographyProps={{ noWrap: true, sx: { color: '#F8FAFC', fontWeight: session.session_id === currentSessionId ? 700 : 400 } }}
+                    secondaryTypographyProps={{ sx: { color: '#64748B', fontSize: '0.75rem' } }}
                   />
                 </ListItem>
               )) : (
-                <Typography variant="body2" color="text.secondary">
-                  No chats yet.
-                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No chats yet.</Typography>
               )}
             </List>
           </Box>
         </Drawer>
-        <Container
-          maxWidth={false}
-          sx={{
-            flexGrow: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            py: 4,
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            maxWidth: '1100px',
-            margin: '0 auto',
-          }}
+
+        {/* ── Main Chat Area ── */}
+        <Container maxWidth={false}
+          sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', py: 0, alignItems: 'center', maxWidth: '960px', margin: '0 auto' }}
         >
-          <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 2, maxWidth: '900px', mx: 'auto', width: '100%', bgcolor: 'transparent' }}>
-            <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <IconButton edge="start" onClick={toggleDrawer(true)} sx={{ color: '#d4af37' }}>
-                <MenuIcon />
-              </IconButton>
-              <Typography variant="h5" fontWeight="bold" sx={{ color: '#d4af37', letterSpacing: 1 }}>
-                ⚖️ न्यायदूत
-              </Typography>
-              <IconButton onClick={handleLogout} sx={{ color: '#d4af37' }}>
-                <Logout />
-              </IconButton>
+          {/* Header */}
+          <AppBar position="static" color="transparent" elevation={0} sx={{ maxWidth: '900px', width: '100%', bgcolor: 'transparent' }}>
+            <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', px: 0 }}>
+              <IconButton onClick={() => setDrawerOpen(true)} sx={{ color: '#d4af37' }}><MenuIcon /></IconButton>
+              <Typography variant="h5" fontWeight="bold" sx={{ color: '#d4af37', letterSpacing: 1 }}>⚖️ न्यायदूत</Typography>
+              <IconButton onClick={() => navigate('/nyayadoot/')} sx={{ color: '#d4af37' }}><Logout /></IconButton>
             </Toolbar>
           </AppBar>
-          <Box
-            sx={{
-              flex: 1,
-              p: 2,
-              overflowY: 'auto',
-              bgcolor: '#1E293B',
-              borderRadius: 3,
-              boxShadow: 3,
-              position: 'relative',
-              maxWidth: '900px',
-              width: '100%',
-              mx: 'auto',
-              minHeight: '400px',
-            }}
-          >
-            {messages.length === 0 && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  p: 3,
-                  bgcolor: '#232946',
-                  borderRadius: 2,
-                  boxShadow: 3,
-                  maxWidth: '600px',
-                  width: '100%',
-                  textAlign: 'center',
-                }}
-              >
-                <Typography
-                  variant="subtitle1"
-                  fontWeight="medium"
-                  sx={{ color: '#d4af37', fontSize: '1.1rem', fontWeight: 700 }}
-                  gutterBottom
-                  align="center"
-                >
-                  Get Started with These Questions
-                </Typography>
-                <Divider sx={{ mb: 2, mt: 1, bgcolor: '#d4af37', height: 2, borderRadius: 1 }} />
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 1.2,
-                    width: '100%',
-                  }}
-                >
-                  {suggestionPrompts.map((prompt, index) => (
+
+          {/* Messages */}
+          <Box sx={{
+            flex: 1, p: 2, overflowY: 'auto', bgcolor: '#1E293B', borderRadius: 3, boxShadow: 3,
+            maxWidth: '900px', width: '100%', mx: 'auto', position: 'relative',
+            '&::-webkit-scrollbar': { width: 6 },
+            '&::-webkit-scrollbar-thumb': { bgcolor: '#334155', borderRadius: 3 },
+          }}>
+            {/* Empty state */}
+            {messages.length === 0 && !loading && (
+              <Fade in timeout={500}>
+                <Box sx={{
+                  position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                  p: 3, bgcolor: '#232946', borderRadius: 2, boxShadow: 3,
+                  maxWidth: '600px', width: '90%', textAlign: 'center',
+                }}>
+                  <Typography variant="subtitle1" sx={{ color: '#d4af37', fontWeight: 700, mb: 1 }}>
+                    Get Started with These Questions
+                  </Typography>
+                  <Divider sx={{ mb: 2, bgcolor: '#d4af37', height: 2, borderRadius: 1 }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    {suggestionPrompts.map((prompt, i) => (
+                      <Button
+                        key={i} variant="outlined"
+                        onClick={() => { setInput(prompt); inputRef.current?.focus(); }}
+                        sx={{
+                          bgcolor: '#0F172A', color: '#d4af37', fontWeight: 500,
+                          py: 1, px: 2, maxWidth: '520px', width: '100%',
+                          fontSize: '0.93rem', whiteSpace: 'normal', wordBreak: 'break-word',
+                          height: 'auto', border: '1.5px solid #d4af37', borderRadius: '20px',
+                          transition: 'all 0.25s ease',
+                          '&:hover': { bgcolor: '#d4af37', color: '#0a2463', borderColor: '#c4a030', transform: 'translateY(-2px)' },
+                        }}
+                      >
+                        {prompt}
+                      </Button>
+                    ))}
+                  </Box>
+                </Box>
+              </Fade>
+            )}
+
+            {/* Chat bubbles */}
+            {messages.map((msg, idx) => (
+              <Fade in timeout={300} key={idx}>
+                <Box display="flex" justifyContent={msg.type === 'user' ? 'flex-end' : 'flex-start'} mb={1}>
+                  <ChatMessage type={msg.type} answer={msg.content} isError={msg.isError} />
+                </Box>
+              </Fade>
+            ))}
+
+            {/* Typing indicator */}
+            {loading && <TypingIndicator />}
+
+            {/* Follow-up chips */}
+            {!loading && messages.length > 0 && messages[messages.length - 1]?.type === 'bot' && !messages[messages.length - 1]?.isError && (
+              <Fade in timeout={400}>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1.5, ml: 0.5 }}>
+                  {followUpChips.map((chip, i) => (
                     <Button
-                      key={index}
-                      variant="outlined"
-                      onClick={() => setInput(prompt)}
+                      key={i} size="small" variant="outlined"
+                      onClick={() => sendMessage(chip)}
                       sx={{
-                        bgcolor: '#121212',
-                        color: '#d4af37',
-                        fontWeight: 500,
-                        py: 1.1,
-                        px: 2,
-                        minWidth: '0',
-                        maxWidth: '520px',
-                        width: '100%',
-                        fontSize: '0.98rem',
-                        textAlign: 'center',
-                        whiteSpace: 'normal',
-                        wordBreak: 'break-word',
-                        height: 'auto',
-                        border: '1.5px solid',
-                        borderColor: '#d4af37',
-                        boxShadow: '0 1px 4px rgba(212, 175, 55, 0.08)',
-                        borderRadius: '22px',
-                        transition: 'all 0.3s cubic-bezier(.4,2,.6,1)',
-                        mb: 0.5,
-                        '&:hover': {
-                          bgcolor: '#d4af37',
-                          color: '#0a2463',
-                          borderColor: '#c4a030',
-                          transform: 'translateY(-2px) scale(1.03)',
-                          boxShadow: '0 4px 12px rgba(212, 175, 55, 0.13)',
-                        },
-                        overflowWrap: 'break-word',
-                        display: 'block',
-                        margin: '0 auto',
+                        color: '#94A3B8', borderColor: '#334155', borderRadius: '16px',
+                        fontSize: '0.78rem', px: 1.5, py: 0.3, textTransform: 'none',
+                        '&:hover': { borderColor: '#d4af37', color: '#d4af37', bgcolor: 'rgba(212,175,55,0.06)' },
                       }}
                     >
-                      {prompt}
+                      {chip}
                     </Button>
                   ))}
                 </Box>
-              </Box>
+              </Fade>
             )}
-            {messages.map((msg, index) => (
-              <Box
-                key={index}
-                display="flex"
-                justifyContent={msg.type === 'user' ? 'flex-end' : 'flex-start'}
-                mb={1}
-              >
-                <ChatMessage type={msg.type} answer={msg.content} />
-              </Box>
-            ))}
-            {loading && (
-              <Typography variant="body2" color="#d4af37" sx={{ mt: 1 }}>
-                Assistant is typing...
-              </Typography>
-            )}
+
             <div ref={messagesEndRef} />
           </Box>
-          <Box
-            sx={{
-              p: 2,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              borderTop: 1,
-              borderColor: 'divider',
-              mt: 2,
-              bgcolor: '#1E293B',
-              borderRadius: 2,
-              boxShadow: 1,
-              maxWidth: '900px',
-              width: '100%',
-              mx: 'auto',
-            }}
-          >
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                fullWidth
-                variant="outlined"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                disabled={loading}
-                placeholder="Ask your legal question..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '10px',
-                    color: '#d4af37',
-                    '& fieldset': {
-                      borderColor: '#d4af37',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#c4a030',
-                    },
-                  },
-                  input: { color: '#fff' },
-                }}
-              />
-              <Button
-                variant="contained"
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-                sx={{
-                  bgcolor: '#d4af37',
-                  color: '#0a2463',
-                  fontWeight: 700,
-                  fontSize: '1.1rem',
-                  borderRadius: '10px',
-                  px: 4,
-                  '&:hover': {
-                    bgcolor: '#c4a030',
-                  },
-                }}
-              >
-                {loading ? 'Sending...' : 'Send'}
-              </Button>
-            </Box>
+
+          {/* Input Area */}
+          <Box sx={{
+            p: 1.5, display: 'flex', gap: 1.5, mt: 1.5, mb: 1,
+            bgcolor: '#1E293B', borderRadius: 2, boxShadow: 1,
+            maxWidth: '900px', width: '100%', mx: 'auto',
+          }}>
+            <TextField
+              fullWidth variant="outlined" value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              disabled={loading} placeholder="Ask your legal question..."
+              inputRef={inputRef} size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '10px', color: '#F8FAFC',
+                  '& fieldset': { borderColor: '#334155' },
+                  '&:hover fieldset': { borderColor: '#d4af37' },
+                  '&.Mui-focused fieldset': { borderColor: '#d4af37' },
+                },
+              }}
+            />
+            <IconButton
+              onClick={handleSend} disabled={loading || !input.trim()}
+              sx={{
+                bgcolor: '#d4af37', color: '#0a2463', width: 42, height: 42,
+                '&:hover': { bgcolor: '#c4a030' },
+                '&.Mui-disabled': { bgcolor: '#334155', color: '#64748B' },
+              }}
+            >
+              <SendIcon fontSize="small" />
+            </IconButton>
           </Box>
         </Container>
       </Box>

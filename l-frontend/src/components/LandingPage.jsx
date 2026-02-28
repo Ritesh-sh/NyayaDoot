@@ -291,7 +291,7 @@ const LandingPage = () => {
                     background: '#c4a030',
                   },
                 }}
-                onClick={() => navigate('/Nyayadoot/captcha')}
+                onClick={() => navigate('/nyayadoot/captcha')}
               >
                 Start with न्यायदूत
               </Button>
@@ -424,7 +424,7 @@ const LandingPage = () => {
                   background: '#c4a030',
                 },
               }}
-              onClick={() => navigate('/Nyayadoot/captcha')}
+              onClick={() => navigate('/nyayadoot/captcha')}
             >
               Start with न्यायदूत
             </Button>

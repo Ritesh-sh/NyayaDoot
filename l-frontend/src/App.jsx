@@ -7,11 +7,11 @@ import Captcha from './components/Captcha';
 function App() {
   return (
     <Routes>
-      <Route path="/Nyayadoot/" element={<LandingPage />} />
-      <Route path="/Nyayadoot/captcha" element={<Captcha />} />
-      <Route path="/Nyayadoot/chat" element={<Chat />} />
-      <Route path="/Nyayadoot/history" element={<History />} />
-      <Route path="/" element={<Navigate to="/Nyayadoot/" replace />} />
+      <Route path="/nyayadoot/" element={<LandingPage />} />
+      <Route path="/nyayadoot/captcha" element={<Captcha />} />
+      <Route path="/nyayadoot/chat" element={<Chat />} />
+      <Route path="/nyayadoot/history" element={<History />} />
+      <Route path="/" element={<Navigate to="/nyayadoot/" replace />} />
     </Routes>
   );
 }
